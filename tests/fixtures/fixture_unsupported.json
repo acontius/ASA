@@ -1,0 +1,31 @@
+{
+  "_source": {
+    "nPr": "0",
+    "scanTime": "1762417273",
+    "@timestamp": "2025-11-07T10:50:30.947Z",
+    "type": "json",
+    "t8291": {
+      "winbox": {
+        "result": {
+          "version": "6.49.18",
+          "libraries": []
+        },
+        "timestamp": "2025-11-07T15:00:00+03:30"
+      },
+      "pr": "0",
+      "appId": "pub-tgrab",
+      "scanTime": "2025-11-07T15:00:00+03:30"
+    },
+    "jid": "8",
+    "port": "t8291",
+    "timestamp": "2025-11-07T15:00:00+03:30",
+    "ip": "203.0.113.1",
+    "@version": "1",
+    "path": "/data/ip/pub-tgrab_0_t8291_winbox_local_8_1762417273.json",
+    "proto": "winbox",
+    "id": 3104055214,
+    "host": "dcf52de4fd11",
+    "appId": "pub-tgrab",
+    "wip": "local"
+  }
+}
