@@ -4,14 +4,43 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  unit:
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run unit tests
+      - name: Compile Python modules
+        run: python -m compileall -q app schemas tests
+      - name: Run unit tests on runner
         run: python -m unittest discover -s tests -v
+      - name: Build Docker test image
+        run: docker build --target test -t asa:test .
+      - name: Run complete unit suite inside Docker
+        run: docker run --rm -v "$GITHUB_WORKSPACE/Data:/app/Data:ro" asa:test
+      - name: Build production runtime image
+        run: docker build --target runtime -t asa:local .
+      - name: Smoke-test runtime container on sample dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/asa-out"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/Data,dst=/data,readonly" \
+            --mount "type=bind,src=$RUNNER_TEMP/asa-out,dst=/out" \
+            asa:local scan \
+              --input /data/PartOfMe.json \
+              --output /out/outcomes.jsonl \
+              --checkpoint /out/scan.ckpt.json
+          test -s "$RUNNER_TEMP/asa-out/outcomes.jsonl"
+          test -s "$RUNNER_TEMP/asa-out/scan.ckpt.json"
+          echo "Docker smoke test output lines: $(wc -l < "$RUNNER_TEMP/asa-out/outcomes.jsonl")"

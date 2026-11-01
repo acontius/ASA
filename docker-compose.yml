@@ -1,0 +1,20 @@
+services:
+  asa:
+    build:
+      context: .
+      target: runtime
+    image: asa:local
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "${ASA_UID:-1000}:${ASA_GID:-1000}"
+    volumes:
+      - ${ASA_DATA_DIR:-./Data}:/data:ro
+      - ${ASA_REFERENCE_DIR:-./local-data}:/reference:ro
+      - ${ASA_OUTPUT_DIR:-./out}:/out
+    working_dir: /app
