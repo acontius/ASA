@@ -1,5 +1,10 @@
 # M2 Handoff — Streaming Ingestion & Deterministic Extraction
 
+> Status: the pipeline described below has been implemented. See
+> [m2_implementation.md](m2_implementation.md) for the behavior that actually
+> shipped. This file remains the original recommendation and is not a second
+> source of truth where the two differ.
+
 ## Goal of M2
 Implement a streaming, resumable ingestion pipeline that:
 1. Reads JSONL records without loading the full dataset into RAM.
