@@ -1,0 +1,56 @@
+{
+  "_comment": "SYNTHETIC fixture that follows the NVD CPE Dictionary 2.0 JSON shape. These are not official NVD entries.",
+  "format": "NVD_CPE",
+  "version": "2.0",
+  "timestamp": "2026-01-01T00:00:00.000",
+  "products": [
+    {
+      "cpe": {
+        "deprecated": false,
+        "cpeName": "cpe:2.3:a:f5:nginx:1.24.0:*:*:*:*:*:*:*",
+        "cpeNameId": "11111111-1111-1111-1111-111111111111",
+        "titles": [{"title": "Synthetic nginx 1.24.0", "lang": "en"}]
+      }
+    },
+    {
+      "cpe": {
+        "deprecated": false,
+        "cpeName": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*",
+        "cpeNameId": "22222222-2222-2222-2222-222222222222",
+        "titles": [{"title": "Synthetic OpenSSH 9.6p1", "lang": "en"}]
+      }
+    },
+    {
+      "cpe": {
+        "deprecated": false,
+        "cpeName": "cpe:2.3:a:acme:shared:1.0:*:*:*:*:*:*:*",
+        "cpeNameId": "33333333-3333-3333-3333-333333333333",
+        "titles": [{"title": "Synthetic shared 1.0 acme", "lang": "en"}]
+      }
+    },
+    {
+      "cpe": {
+        "deprecated": false,
+        "cpeName": "cpe:2.3:a:other:shared:1.0:*:*:*:*:*:*:*",
+        "cpeNameId": "44444444-4444-4444-4444-444444444444",
+        "titles": [{"title": "Synthetic shared 1.0 other", "lang": "en"}]
+      }
+    },
+    {
+      "cpe": {
+        "deprecated": true,
+        "cpeName": "cpe:2.3:a:example:oldthing:1.0:*:*:*:*:*:*:*",
+        "cpeNameId": "55555555-5555-5555-5555-555555555555",
+        "titles": [{"title": "Synthetic deprecated oldthing 1.0", "lang": "en"}]
+      }
+    },
+    {
+      "cpe": {
+        "deprecated": false,
+        "cpeName": "cpe:2.3:a:example:versionless:*:*:*:*:*:*:*:*",
+        "cpeNameId": "66666666-6666-6666-6666-666666666666",
+        "titles": [{"title": "Synthetic versionless product", "lang": "en"}]
+      }
+    }
+  ]
+}

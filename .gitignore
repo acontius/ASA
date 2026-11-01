@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 out/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
