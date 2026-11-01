@@ -2,47 +2,46 @@
 
 Passive assessment pipeline that extracts software/product identification evidence from network scan output, preparing it for later CPE resolution and vulnerability assessment.
 
-**Current milestone:** M1 — Data Understanding and Preparation (complete).
+**Current milestone:** M2 — Streaming ingestion and deterministic extraction (complete).
 
-## Repository layout
+## Run the pipeline
 
-```
-Data/
-  PartOfMe.json      # Sample scan dataset (JSONL, ~14 MB, 1 618 records)
-  structure.md       # Early notes (evaluated in M1 profile)
-docs/
-  m1_data_profile.md # Observed data structures, quality issues, methodology
-  m1_contracts.md    # Input / Normalized / Candidate / Outcome contracts
-  m1_acceptance.md   # Acceptance checklist
-  m2_handoff.md      # Recommended next steps
-schemas/
-  models.py          # Lightweight TypedDict contracts
-tests/
-  fixtures/          # Sanitized representative records
-  test_contracts.py  # Contract & fixture validation
-```
-
-## Supported protocols (MVP)
-
-- SSH
-- HTTP / HTTPS
-- FTP
-- MongoDB
-
-## Running M1 verification
+Requires Python 3.11 (3.10 can import the modules; the test suite is executed on 3.11). No third-party packages.
 
 ```bash
-# From repository root
-python -m pytest tests/test_contracts.py -v
-# or without pytest:
-python tests/test_contracts.py
+python3.11 -m app.cli \
+  --input Data/PartOfMe.json \
+  --output out/outcomes.jsonl \
+  --checkpoint out/scan.ckpt.json
+
+# resume after an interruption
+python3.11 -m app.cli --input Data/PartOfMe.json \
+  --output out/outcomes.jsonl --checkpoint out/scan.ckpt.json --resume
 ```
 
-## Privacy & safety
+The CLI refuses to write outcomes onto the input path. Details, outcome rules, and checkpoint semantics: [docs/m2_implementation.md](docs/m2_implementation.md).
 
-- Actual scan data must not leave the local processing boundary.
-- Fixtures are sanitized (IPs replaced, geo-meta stripped).
-- No external LLM or online analysis APIs are used.
+## Tests
+
+```bash
+python3.11 -m unittest discover -s tests -v
+```
+
+## Layout
+
+```
+app/                 # reader, normalizer, extractors, pipeline, CLI
+schemas/models.py    # M1 TypedDict contracts
+tests/               # M1 contract tests + M2 unit/pipeline tests
+docs/                # M1 profile and contracts, M2 handoff and implementation
+Data/PartOfMe.json   # sample JSONL (do not commit copies)
+```
+
+Supported protocols: SSH, HTTP/HTTPS, FTP, MongoDB. Other protocols are reported as `unsupported_protocol` unless the record also contains a supported port block.
+
+## Privacy
+
+Scan data stays on the local machine. The pipeline does not call external APIs or LLMs. Fixtures use redacted addresses.
 
 ## License
 

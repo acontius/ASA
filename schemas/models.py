@@ -5,7 +5,16 @@ No external dependencies. Suitable for both runtime checks and static analysis.
 
 from __future__ import annotations
 
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal, TypedDict
+
+try:
+    from typing import NotRequired  # Python 3.11+
+except ImportError:  # pragma: no cover - Python 3.10
+    class NotRequired:  # type: ignore[no-redef]
+        """Stand-in so annotations import on 3.10. Runtime checks do not rely on it."""
+
+        def __class_getitem__(cls, item):  # noqa: N805
+            return item
 
 
 class PortBlock(TypedDict):
@@ -75,10 +84,12 @@ class ProcessingOutcome(TypedDict):
 # Minimal required keys for an input _source object
 REQUIRED_SOURCE_KEYS = frozenset({"ip", "scanTime", "proto", "port", "appId", "path"})
 
+SUPPORTED_PROTOCOLS = frozenset({"ssh", "http", "ftp", "mongodb"})
+
 
 def is_port_key(key: str) -> bool:
     """Return True if key looks like a tNN / uNN port block."""
-    if len(key) < 2:
+    if not isinstance(key, str) or len(key) < 2:
         return False
     if key[0] not in ("t", "u"):
         return False
