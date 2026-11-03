@@ -1,0 +1,257 @@
+{
+  "_comment": "SYNTHETIC fixture shaped like an NVD CVE 2.0 feed. These are not official NVD records.",
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "timestamp": "2026-02-01T00:00:00.000",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2026-9001",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-02-01T00:00:00.000",
+        "lastModified": "2026-02-02T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [
+          {"lang": "en", "value": "Synthetic nginx vulnerability."},
+          {"lang": "es", "value": "Vulnerabilidad sintetica de nginx."}
+        ],
+        "metrics": {
+          "cvssMetricV2": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {"version": "2.0", "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N", "baseScore": 5.0}
+            }
+          ],
+          "cvssMetricV31": [
+            {
+              "source": "nvd@nist.gov",
+              "type": "Primary",
+              "cvssData": {
+                "version": "3.1",
+                "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+                "baseScore": 7.5,
+                "baseSeverity": "HIGH"
+              }
+            }
+          ],
+          "cvssMetricV40": [
+            {
+              "source": "cna@example.invalid",
+              "type": "Secondary",
+              "cvssData": {
+                "version": "4.0",
+                "vectorString": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N",
+                "baseScore": 8.7,
+                "baseSeverity": "HIGH"
+              }
+            }
+          ]
+        },
+        "weaknesses": [
+          {"source": "nvd@nist.gov", "type": "Primary", "description": [{"lang": "en", "value": "CWE-22"}]}
+        ],
+        "references": [
+          {"url": "https://example.invalid/advisory/9001", "source": "cve@example.invalid", "tags": ["Vendor Advisory"]}
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:f5:nginx:1.24.0:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "CRIT-NGINX"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2026-9002",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-02-01T00:00:00.000",
+        "lastModified": "2026-02-01T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Synthetic nginx issue that also requires a platform."}],
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": [
+          {
+            "operator": "AND",
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:f5:nginx:1.24.0:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-NGINX"}
+                ]
+              },
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": false, "criteria": "cpe:2.3:o:linux:linux_kernel:*:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-LINUX"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2026-9003",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-02-01T00:00:00.000",
+        "lastModified": "2026-02-01T00:00:00.000",
+        "vulnStatus": "Undergoing Analysis",
+        "descriptions": [{"lang": "en", "value": "Synthetic issue whose only local hit is a platform CPE."}],
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": false, "criteria": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-SSH"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2026-9004",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-01-01T00:00:00.000",
+        "lastModified": "2026-01-02T00:00:00.000",
+        "vulnStatus": "Rejected",
+        "descriptions": [{"lang": "en", "value": "Synthetic rejected CVE. Not an active vulnerability."}],
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:f5:nginx:1.24.0:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-NGINX"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2026-9005",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-02-03T00:00:00.000",
+        "lastModified": "2026-02-03T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Synthetic issue that requires both nginx and OpenSSH."}],
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": [
+          {
+            "operator": "AND",
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:f5:nginx:1.24.0:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-NGINX"}
+                ]
+              },
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-SSH"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2026-9006",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-02-04T00:00:00.000",
+        "lastModified": "2026-02-04T00:00:00.000",
+        "vulnStatus": "Awaiting Analysis",
+        "descriptions": [{"lang": "en", "value": "Synthetic issue with a criteria id missing from the local match feed."}],
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": [
+          {
+            "operator": "AND",
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:f5:nginx:1.24.0:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-NGINX"}
+                ]
+              },
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:missing:product:1.0:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-MISSING"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2026-9007",
+        "sourceIdentifier": "cve@example.invalid",
+        "published": "2026-02-05T00:00:00.000",
+        "lastModified": "2026-02-05T00:00:00.000",
+        "vulnStatus": "Analyzed",
+        "descriptions": [{"lang": "en", "value": "Synthetic OpenSSH vulnerability."}],
+        "metrics": {},
+        "weaknesses": [],
+        "references": [],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {"vulnerable": true, "criteria": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*", "matchCriteriaId": "CRIT-SSH"}
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

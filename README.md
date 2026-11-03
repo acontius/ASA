@@ -2,7 +2,7 @@
 
 Passive assessment pipeline that extracts software/product identification evidence from network scan output, preparing it for later CPE resolution and vulnerability assessment.
 
-**Current milestone:** M3 — Offline CPE dictionary import and conservative resolution.
+**Current milestone:** M4 — Offline CVE intelligence import and conservative applicability assessment.
 
 ## Run with Docker (recommended for a repeatable environment)
 
@@ -70,7 +70,7 @@ Supported protocols: SSH, HTTP/HTTPS, FTP, MongoDB. Other protocols are reported
 
 ## Privacy
 
-Scan data stays on the local machine. Neither pipeline calls external APIs or LLMs. The CPE resolver reads only the local SQLite dictionary. Fixtures use redacted addresses. The synthetic CPE fixture is not an official NVD download, and dictionary databases are gitignored.
+Scan data stays on the local machine. No stage calls NVD, other APIs, or LLMs. Users download public NVD feeds separately and pass local paths. The CPE resolver and the CVE assessor read only local SQLite files. Fixtures use redacted addresses. Synthetic CVE, CPE Match, and CPE dictionary fixtures are not official NVD downloads. Database files and `out/` are gitignored. `potentially_affected` is not a statement that an asset is confirmed vulnerable.
 
 ## License
 
