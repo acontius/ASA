@@ -18,7 +18,9 @@ Requires Docker Engine and Docker Compose v2. The runtime image uses Python 3.11
       --output /out/outcomes.jsonl \
       --checkpoint /out/scan.ckpt.json
 
-The repository's sample input is mounted read-only from Data/; it is not copied into the image. Outputs appear in the host out/ directory. For CPE import/resolution commands, alternate paths, resume, privacy, and troubleshooting, see docs/docker.md.
+The repository's sample input is mounted read-only from Data/; it is not copied into the image. Outputs appear in the host out/ directory. The same container runs later stages. `cpe` is the M3 dictionary import and resolution command. `vulnerability` is the M4 command (`import-cves`, `import-cpe-match`, `assess`). Neither downloads NVD feeds. For paths, resume, privacy, and troubleshooting, see docs/docker.md.
+
+    docker compose run --rm asa vulnerability --help
 
 ## Run directly with Python
 
@@ -59,10 +61,11 @@ GitHub Actions runs the full suite on Python 3.11 and builds/runs the Docker tes
 
 ## Layout
 
-    app/                 # M2 pipeline plus app/cpe for offline resolution
+    app/                 # M2 pipeline, plus app/cpe and app/vulnerability
     schemas/models.py    # M1 TypedDict contracts
     schemas/cpe.py       # M3 resolution records
-    tests/               # M1, M2, and M3 tests
+    schemas/vulnerability.py
+    tests/               # M1 through M4 tests
     docs/                # milestone notes and Docker instructions
     Data/PartOfMe.json   # sample JSONL; never included in runtime image
 
