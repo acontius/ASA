@@ -22,9 +22,14 @@ ENTRYPOINT ["asa"]
 CMD ["help"]
 
 # Test image is separate; the runtime image remains small and does not include tests.
+# Release-archive tests import tools.build_release_archive and require LICENSE.
+# Those files stay out of the runtime image.
 FROM runtime AS test
 USER root
 COPY tests/ ./tests/
-RUN chown -R asa:asa /app/tests
+COPY tools/ ./tools/
+COPY LICENSE README.md ./
+COPY docs/ ./docs/
+RUN chown -R asa:asa /app/tests /app/tools /app/LICENSE /app/README.md /app/docs
 USER asa:asa
 CMD ["test"]

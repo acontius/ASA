@@ -63,7 +63,26 @@ Place a locally downloaded NVD CPE Dictionary 2.0 JSON file or .json.gz chunks u
 
 The CPE stage uses only the local dictionary database. The official NVD feed has not been validated as part of the Docker smoke test; use the project's M3 documentation for current feed support and limitations.
 
-## 4. Run tests
+## 4. Run the M4 vulnerability stage
+
+Place locally downloaded NVD CVE 2.0 and CPE Match 2.0 files under local-data/. Do not commit those feeds. The container does not download them.
+
+    docker compose run --rm asa vulnerability import-cves \
+      --source /reference/nvd-cves/ \
+      --db /out/vulnerability-intelligence.sqlite
+
+    docker compose run --rm asa vulnerability import-cpe-match \
+      --source /reference/nvd-cpe-match/ \
+      --db /out/vulnerability-intelligence.sqlite
+
+    docker compose run --rm asa vulnerability assess \
+      --input /out/cpe-resolutions.jsonl \
+      --output /out/cve-assessments.jsonl \
+      --db /out/vulnerability-intelligence.sqlite
+
+`vulnerability --help` lists the same three subcommands as `python3.11 -m app.vulnerability.cli --help`. Assessment reads M3 resolution JSONL and the local SQLite file only. `potentially_affected` is not a confirmed vulnerability. The Docker smoke test does not import an official NVD CVE or CPE Match feed; synthetic fixtures are not evidence of full-feed compatibility.
+
+## 5. Run tests
 
 Run the complete suite locally with Python:
 
@@ -74,7 +93,8 @@ GitHub Actions builds a separate test image and runs the same test suite inside 
 ## Data handling and image contents
 
 - Data/PartOfMe.json is excluded from the Docker build context and image.
-- The runtime image contains application code and schemas, not tests, scan data, NVD feeds, or SQLite databases.
+- The runtime image contains application code and schemas, not tests, scan data, NVD feeds, packaging helpers, or SQLite databases.
+- The test image also contains tests, tools, docs, the README, and the license so the release-archive test can import `tools` and see `LICENSE`. It still does not contain scan data or databases.
 - /data and /reference are read-only mounts.
 - /out is the writable output mount.
 - The container runs as a non-root user by default; Compose uses the current host UID/GID to avoid root-owned output files.
