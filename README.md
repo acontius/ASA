@@ -2,7 +2,7 @@
 
 Passive assessment pipeline that extracts software/product identification evidence from network scan output, preparing it for later CPE resolution and vulnerability assessment.
 
-**Current milestone:** M3 — Offline CPE dictionary import and conservative resolution.
+**Current milestone:** M4 — Offline CVE intelligence import and conservative applicability assessment.
 
 ## Run the pipeline
 
@@ -38,21 +38,50 @@ python3.11 -m app.cpe.cli resolve \
 
 `--source` may be one `.json` / `.json.gz` document or a directory of those chunks. The feed `version` must be `2.0`. Only a unique active CPE with an exact product and version, plus **strong** evidence, becomes `exact_match`. Vendor and part are copied from that entry; they are never guessed. See [docs/m3_implementation.md](docs/m3_implementation.md).
 
+## M4 — local CVE applicability
+
+M4 does not change the M2 or M3 CLIs. It imports local NVD CVE 2.0 and CPE Match 2.0 files into a separate SQLite database, then evaluates M3 resolutions offline. It does not download NVD data and it does not send scan records, CPE lists, or assessments anywhere.
+
+Download the feeds yourself from [NVD data feeds](https://nvd.nist.gov/vuln/data-feeds). Do not commit them.
+
+```bash
+python3.11 -m app.vulnerability.cli import-cves \
+  --source ./local-data/nvd-cves/ \
+  --db ./out/vulnerability-intelligence.sqlite
+
+python3.11 -m app.vulnerability.cli import-cves \
+  --source ./local-data/nvd-cves/modified/ \
+  --db ./out/vulnerability-intelligence.sqlite \
+  --kind incremental
+
+python3.11 -m app.vulnerability.cli import-cpe-match \
+  --source ./local-data/nvd-cpe-match/ \
+  --db ./out/vulnerability-intelligence.sqlite
+
+python3.11 -m app.vulnerability.cli assess \
+  --input ./out/cpe-resolutions.jsonl \
+  --output ./out/cve-assessments.jsonl \
+  --db ./out/vulnerability-intelligence.sqlite
+```
+
+Only M3 `exact_match` rows with a `cpe_name_id`, strong evidence when that field is present, and `deprecated` not true are inventory. A result of `potentially_affected` means the NVD configuration tree evaluated true for that inventory. It is not a confirmed vulnerability. `no_match_in_local_feed` does not mean the asset is secure. See [docs/m4_implementation.md](docs/m4_implementation.md).
+
 ## Tests
 
 ```bash
 python3.11 -m unittest discover -s tests -v
 ```
 
-GitHub Actions runs the same command on pull requests and on pushes to `main` (`.github/workflows/tests.yml`).
+GitHub Actions (`.github/workflows/tests.yml`) runs that suite, plus a synthetic CLI smoke test, on pull requests, pushes to `main`, and `workflow_dispatch`. `.github/workflows/release.yml` builds a source archive on pull requests and publishes a GitHub Release only for a `v*` tag. The archive excludes scan data and databases.
 
 ## Layout
 
 ```
-app/                 # M2 pipeline plus app/cpe for offline resolution
+app/                 # M2 pipeline, app/cpe, and app/vulnerability
 schemas/models.py    # M1 TypedDict contracts
 schemas/cpe.py       # M3 resolution records
-tests/               # M1, M2, and M3 tests
+schemas/vulnerability.py  # M4 assessment records
+tests/               # M1 through M4 tests, including synthetic NVD-shaped fixtures
 docs/                # milestone notes
 Data/PartOfMe.json   # sample JSONL (do not commit copies)
 ```
@@ -61,7 +90,7 @@ Supported protocols: SSH, HTTP/HTTPS, FTP, MongoDB. Other protocols are reported
 
 ## Privacy
 
-Scan data stays on the local machine. Neither pipeline calls external APIs or LLMs. The CPE resolver reads only the local SQLite dictionary. Fixtures use redacted addresses. The synthetic CPE fixture is not an official NVD download, and dictionary databases are gitignored.
+Scan data stays on the local machine. No stage calls NVD, other APIs, or LLMs. Users download public NVD feeds separately and pass local paths. The CPE resolver and the CVE assessor read only local SQLite files. Fixtures use redacted addresses. Synthetic CVE, CPE Match, and CPE dictionary fixtures are not official NVD downloads. Database files and `out/` are gitignored. `potentially_affected` is not a statement that an asset is confirmed vulnerable.
 
 ## License
 

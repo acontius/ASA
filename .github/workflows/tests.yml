@@ -4,14 +4,40 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   unit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -v
+      - name: Compile
+        run: python -m compileall -q app schemas tests tools
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -v | tee test-log.txt
+      - name: CLI smoke tests
+        run: |
+          set -o pipefail
+          {
+            python -m app.vulnerability.cli import-cves --source tests/fixtures/cve_feed_sample.json --db /tmp/asa-m4.sqlite --kind initial
+            python -m app.vulnerability.cli import-cpe-match --source tests/fixtures/cpematch_sample.json --db /tmp/asa-m4.sqlite
+            python -m app.vulnerability.cli assess --input tests/fixtures/m3_resolutions_sample.jsonl --output /tmp/asa-m4-assess.jsonl --db /tmp/asa-m4.sqlite
+            python -c 'import json; rows=[json.loads(line) for line in open("/tmp/asa-m4-assess.jsonl", encoding="utf-8") if line.strip()]; statuses={item["assessment_status"] for row in rows for item in row["cve_assessments"]}; assert "potentially_affected" in statuses; assert "confirmed_vulnerable" not in statuses; blob=open("/tmp/asa-m4-assess.jsonl", encoding="utf-8").read(); assert "confirmed_vulnerable" not in blob; print("smoke-ok", sorted(statuses))'
+          } | tee smoke-log.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs
+          path: |
+            test-log.txt
+            smoke-log.txt
+          if-no-files-found: warn
