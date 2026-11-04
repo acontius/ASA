@@ -1,7 +1,4 @@
-"""Bounded, local agent contracts and run-state primitives.
-
-This package intentionally contains no model runtime, network client, or tool executor.
-"""
+"""Bounded local-agent contracts, provider, read-only tools, and run state."""
 
 from app.agent.config import AgentConfig
 from app.agent.provider import (
