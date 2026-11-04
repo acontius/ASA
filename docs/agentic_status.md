@@ -72,9 +72,9 @@ The preliminary Task 3 state-limit correction was isolated from the registry wor
 - State validation: \`3e8890989c26e94285002a53c9d2811b7adb2642\`
 - Focused regression test: \`fd058171ba09405a363c19ef4e54c674834da2bd\`
 
-Task 2 CI previously passed on CPython 3.11.17: 133 tests in the runner environment and 133 tests inside Docker; Docker sample smoke test processed 1,618 records with zero errors.
+At the Task 4 starting baseline, GitHub Actions had passed on CPython 3.11.18: 152 tests in the runner environment and 152 tests inside Docker; Docker runtime build, sample smoke test, and release packaging passed.
 
-## 5. Task 3 — Safe read-only tool registry: IMPLEMENTED; CI PASSED
+## 5. Task 3 — Safe read-only tool registry: MERGED; CI PASSED
 
 Implemented in the current feature branch:
 
@@ -102,16 +102,38 @@ Task 3 implementation commits currently on the branch:
 - Derive summary status sets from schemas: \`7e74c296a19c72cf9b0567e78d13134e776fefad\`
 - Tool registry documentation: \`23a94812550f8f0c3e9863d85f57765e64421658\`
 
-Validation on GitHub Actions completed successfully on **CPython 3.11.17**:
+Validation on GitHub Actions for the merged Task 3 baseline completed successfully on **CPython 3.11.18**:
 - `python -m compileall -q app schemas tests`: passed.
 - Full runner suite: **152 tests passed** (0.859 s).
 - Docker test-image suite: **152 tests passed** (1.005 s).
 - Production runtime Docker image: built successfully.
 - Runtime smoke test: **1,618** sample records processed, `errors=0`, `blank=0`; output contained 1,618 lines.
 - Release packaging workflow: passed.
-- The new focused tool-registry module contains 19 test methods; these are included in the 152-test full suite.
+- The focused tool-registry module contains 19 test methods; these are included in the 152-test full suite. PR #10 was merged; the Task 4 starting `main` and feature branch were verified identical at `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`.
 
-## 6. Non-negotiable constraints
+## 6. Task 4 — Local llama.cpp provider: IMPLEMENTED; CI PENDING
+
+Implemented on `feat/local-agent-mvp` after verifying that both `main` and the feature branch matched baseline `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`.
+
+Files changed:
+- `app/agent/provider.py`: synchronous local HTTP provider, immutable text-only `ProviderMessage`, bounded requests/responses, health check, raw assistant text return, and sanitized typed exceptions.
+- `app/agent/config.py`: trusted `model_alias` configuration (default `asa-local`) with strict identifier validation.
+- `app/agent/__init__.py`: provider interface and exception exports.
+- `tests/test_agent_provider.py`: deterministic HTTP test doubles covering endpoint/payload, limits, readiness, errors, malformed responses, tool-call rejection, redirect and proxy behavior, and information-leakage checks.
+- `tests/test_agent_contracts.py`: model-alias configuration tests.
+- `docs/agent_contract.md`: provider contract, security controls, and manual llama-server setup.
+
+Security/behavior:
+- Only `AgentConfig.server_url` and fixed `/health` / `/v1/chat/completions` paths determine the destination. The config already requires a literal loopback IP; no message/model URL selection exists.
+- Explicit `ProxyHandler({})` disables environment proxy discovery. Redirects are rejected. No retries or external fallback.
+- Request ceiling: 16 messages and 256 KiB serialized JSON. Response body ceiling: 1 MiB, detected with a bounded read of at most limit + 1.
+- Completion payload contains only model alias, role/content messages, max tokens, temperature zero, and stream false. No tool/MCP/function schema.
+- HTTP envelope parsing only; model-generated JSON is not parsed into `AgentDecision`.
+- Provider is not connected to `ToolRegistry`; no agent loop, CLI, persistence, server process management, model download, or model/GPU assumption was added.
+
+Validation has not yet been run for Task 4 at this status snapshot. A real llama-server/model and GPU were not used; CI is intended to use deterministic local test doubles only.
+
+## 7. Non-negotiable constraints
 
 - Python 3.11 CLI; standard library preferred.
 - Supported protocols remain FTP, HTTP/HTTPS, SSH, and MongoDB only.
@@ -123,7 +145,7 @@ Validation on GitHub Actions completed successfully on **CPython 3.11.17**:
 - No LangGraph, multi-agent architecture, Pydantic, or unnecessary dependencies.
 - Never merge a branch or PR without explicit user approval.
 
-## 7. Known limitations
+## 8. Known limitations
 
 - The 4 GB production scan dataset has not been tested.
 - M2 checkpoint resume can repeat a record after a crash between output flush and checkpoint update.
@@ -132,15 +154,15 @@ Validation on GitHub Actions completed successfully on **CPython 3.11.17**:
 - Task 3 readiness reports SQLite table names and user_version metadata; it does not certify application-level compatibility with a particular production database version.
 - The registry is not yet connected to a model provider or agent loop.
 
-## 8. Agreed next-step order
+## 9. Agreed next-step order
 
-1. **Task 3 — Safe read-only tool registry:** current implementation; finish CI validation and review.
-2. **Task 4 — Local llama.cpp provider:** local-only provider integration; no agent loop.
-3. **Task 5 — Bounded agent loop and strict model-response validation.**
+1. **Task 3 — Safe read-only tool registry:** merged into main.
+2. **Task 4 — Local llama.cpp provider:** implementation complete; CI validation and review pending.
+3. **Task 5 — Bounded agent loop and strict model-response validation:** not started.
 4. Later: opt-in CLI integration and minimal UI.
 
 Do not skip the registry stage. Do not begin Task 4 until Task 3 is reviewed and explicitly complete.
 
 ---
 
-*Task 3 test results above reflect completed GitHub Actions runs for this implementation. The PR remains draft and unmerged; Task 4 has not started.*
+*Task 3 test results above reflect the merged GitHub Actions baseline. Task 4 implementation is on the feature branch; its PR and CI validation are pending. Task 5 has not started.*
