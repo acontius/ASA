@@ -127,11 +127,22 @@ Do not bind to `0.0.0.0`; do not use `-hf` or `--model-url`; do not enable `--to
 
 Qwen3 8B GGUF Q4_K_M is only an optional manual candidate; its local availability and suitability on the target 16 GB RAM / 8 GB VRAM machine have not been verified. Check the installed `llama-server --help` for supported GPU offload flags and determine the number of layers empirically; do not assume all layers fit in VRAM.
 
-## 7. Explicitly deferred
+## 7. Strict model-response parsing (Task 5A)
+
+`parse_agent_decision` in `app/agent/decision_parser.py` converts untrusted raw model text into an `AgentDecision` only after strict JSON and contract validation. The parser:
+
+- accepts a single JSON object with exactly `kind`, `message`, and `tool_call`;
+- rejects duplicate JSON object keys, non-standard constants, malformed JSON, non-object top-level values, and missing or extra fields;
+- requires a tool-call object to contain exactly `name` and `arguments`, with string-to-string arguments, and delegates allow-list and decision-combination validation to the existing contracts;
+- requires `tool_call: null` for `final_answer` and `clarification`;
+- raises `DecisionParseError` for invalid output and does not dispatch tools, execute code, or change M1–M4 data.
+
+Parsing is a boundary-validation step only. It does not add a bounded agent loop, prompt policy, registry integration, or tool execution.
+
+## 8. Explicitly deferred
 
 This task does **not** implement:
 
-- raw JSON parsing or strict validation of model-generated response text into `AgentDecision`;
 - an agent loop, prompt policy, tool dispatch, or registry integration;
 - CLI integration, UI, persistence, or run recovery;
 - model loading, downloading, or automatic model management;
