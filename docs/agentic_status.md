@@ -2,7 +2,7 @@
 
 **Repository:** \`acontius/ASA\`  
 **Status snapshot:** 2026-11-04  
-**Main baseline for Task 3:** \`859a2f3f3957f1728f83e3cfbd5caf57bfa07639\`  
+**Main baseline for Task 4:** \`3f9075837cda1fb3f6357fa6c52b3e7c2c77104e\`  
 **Working branch:** \`feat/local-agent-mvp\`
 
 ## 1. Current project state
@@ -152,7 +152,7 @@ Validation has not yet been run for Task 4 at this status snapshot. A real llama
 - M3 has not been validated against the official full CPE dictionary and does not implement CPE version-range semantics.
 - M4 has not been validated against the official full CVE and CPE Match feeds.
 - Task 3 readiness reports SQLite table names and user_version metadata; it does not certify application-level compatibility with a particular production database version.
-- The registry is not yet connected to a model provider or agent loop.
+- The registry is not yet connected to the model provider or agent loop; Task 4 deliberately leaves this integration deferred.
 
 ## 9. Agreed next-step order
 
