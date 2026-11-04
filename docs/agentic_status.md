@@ -74,7 +74,7 @@ The preliminary Task 3 state-limit correction was isolated from the registry wor
 
 Task 2 CI previously passed on CPython 3.11.17: 133 tests in the runner environment and 133 tests inside Docker; Docker sample smoke test processed 1,618 records with zero errors.
 
-## 5. Task 3 — Safe read-only tool registry: IMPLEMENTED; CI VALIDATION PENDING
+## 5. Task 3 — Safe read-only tool registry: IMPLEMENTED; CI PASSED
 
 Implemented in the current feature branch:
 
@@ -102,7 +102,14 @@ Task 3 implementation commits currently on the branch:
 - Derive summary status sets from schemas: \`7e74c296a19c72cf9b0567e78d13134e776fefad\`
 - Tool registry documentation: \`23a94812550f8f0c3e9863d85f57765e64421658\`
 
-The focused Task 3 tests and full suite have not yet been reported as passing. Record exact Python 3.11 runtime and test counts only after CI has completed.
+Validation on GitHub Actions completed successfully on **CPython 3.11.17**:
+- `python -m compileall -q app schemas tests`: passed.
+- Full runner suite: **152 tests passed** (0.859 s).
+- Docker test-image suite: **152 tests passed** (1.005 s).
+- Production runtime Docker image: built successfully.
+- Runtime smoke test: **1,618** sample records processed, `errors=0`, `blank=0`; output contained 1,618 lines.
+- Release packaging workflow: passed.
+- The new focused tool-registry module contains 19 test methods; these are included in the 152-test full suite.
 
 ## 6. Non-negotiable constraints
 
@@ -136,4 +143,4 @@ Do not skip the registry stage. Do not begin Task 4 until Task 3 is reviewed and
 
 ---
 
-*This status distinguishes implemented code from verified test results. CI results will be added only after the corresponding workflow has completed.*
+*Task 3 test results above reflect completed GitHub Actions runs for this implementation. The PR remains draft and unmerged; Task 4 has not started.*
