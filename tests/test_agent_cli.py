@@ -16,6 +16,8 @@ from app.agent.runner import AgentRunResult
 from app.agent.state import RunStatus
 from app.agent.tool_registry import DEFAULT_ALLOWED_DATA_ROOTS, ToolRegistry
 
+from tests.test_docker_entrypoint import entrypoint_path
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -361,13 +363,13 @@ class CliTests(unittest.TestCase):
         self.assertIn("--output", result.stdout)
         self.assertNotIn("workspace-root", result.stdout)
 
-        entry = (ROOT / "docker" / "entrypoint.sh").read_text(encoding="utf-8")
+        entry = entrypoint_path().read_text(encoding="utf-8")
         self.assertIn("python -m app.cli", entry)
         self.assertIn("python -m app.cpe.cli", entry)
         self.assertIn("python -m app.vulnerability.cli", entry)
         self.assertNotIn("app.agent.cli", entry)
         rejected = subprocess.run(
-            ["sh", str(ROOT / "docker" / "entrypoint.sh"), "agent"],
+            ["sh", str(entrypoint_path()), "agent"],
             check=False,
             capture_output=True,
             text=True,
