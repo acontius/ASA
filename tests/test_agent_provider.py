@@ -161,7 +161,7 @@ class ProviderRequestTests(unittest.TestCase):
             provider.complete([ProviderMessage("user", "local only")])
         proxy_handler = factory.call_args.args[0]
         self.assertEqual(proxy_handler.proxies, {})
-        self.assertEqual(opener.request.host, "127.0.0.1")
+        self.assertEqual(opener.request.host, "127.0.0.1:8080")
 
 
 class ProviderHealthTests(unittest.TestCase):
