@@ -68,7 +68,8 @@ No persistence, scheduling, retries, or orchestration is included.
 | `server_url` | `http://127.0.0.1:8080` | HTTP URL with a literal loopback IP only; no credentials, path, query, or fragment |
 | `request_timeout_seconds` | `15.0` | Greater than 0 and at most 120 |
 | `max_steps` | `5` | Integer from 1 to 10 |
-| `max_output_tokens` | `512` | Integer from 1 to 2048 |\n| `model_alias` | `asa-local` | 1–64 ASCII letters, digits, dots, underscores, or hyphens; starts with a letter or digit |
+| `max_output_tokens` | `512` | Integer from 1 to 2048 |
+| `model_alias` | `asa-local` | 1–64 ASCII letters, digits, dots, underscores, or hyphens; starts with a letter or digit |
 
 IPv4 loopback addresses and IPv6 `::1` are accepted. Hostnames (including `localhost`), LAN/public addresses, HTTPS, URL credentials, paths, queries, fragments, malformed ports, booleans masquerading as integers, and non-finite timeouts are rejected.
 
