@@ -1,7 +1,7 @@
 # Local Agent Contracts and Run State
 
-**Status:** Task 2 foundation  
-**Scope:** Contracts, bounded state, and validated configuration only
+**Status:** Task 2 foundation + Task 3 read-only registry  
+**Scope:** Contracts, bounded state, validated configuration, and four read-only tools
 
 ## 1. Role and trust boundary
 
@@ -33,7 +33,7 @@ Allowed decision types:
 | `final_answer` | Forbidden | Return an advisory response to the user |
 | `clarification` | Forbidden | Ask the user for missing information |
 
-Currently permitted tool names (names only; no implementations or execution in this task):
+The four implemented read-only tool identifiers are:
 
 - `inspect_input`
 - `check_readiness`
@@ -96,16 +96,11 @@ M2 summaries count the schema-defined `outcome` field. M3 summaries count `candi
 
 ## 6. Explicitly deferred
 
-Task 4 is the local llama.cpp provider only. Task 5 is the bounded agent loop and strict model-response validation. CLI integration and UI remain later work. The registry is deliberately implemented before provider or loop integration.
-
-## 7. Explicitly deferred
-
 This task does **not** implement:
 
 - llama.cpp provider code, model loading, inference, or prompt construction;
 - HTTP requests or server health checks;
 - raw JSON parsing or strict validation of model-generated response text;
-- a tool registry, tool implementations, or tool execution;
 - an agent loop, CLI integration, persistence, or run recovery;
 - any changes to M1–M4 schemas, pipeline, CLI, output formats, or supported protocols.
 
