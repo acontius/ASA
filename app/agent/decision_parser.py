@@ -12,6 +12,11 @@ class DecisionParseError(ValueError):
     """Raw model output does not satisfy the decision response contract."""
 
 
+# A decision is a small control object. Reject oversized text before parsing so
+# nested or padded model output cannot spend unbounded CPU or memory.
+MAX_DECISION_BYTES = 64 * 1024
+
+
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -32,7 +37,12 @@ def _exact_keys(value: dict[str, Any], expected: set[str], label: str) -> None:
 
 def parse_agent_decision(raw_text: str) -> AgentDecision:
     """Parse a JSON response with exact keys and validate it against contracts."""
-    if not isinstance(raw_text, str) or not raw_text.strip():
+    if not isinstance(raw_text, str):
+        raise DecisionParseError("model response must be non-empty text")
+    # Character length is a cheap upper bound: UTF-8 byte length is never smaller.
+    if len(raw_text) > MAX_DECISION_BYTES or len(raw_text.encode("utf-8")) > MAX_DECISION_BYTES:
+        raise DecisionParseError("model response exceeds size limit")
+    if not raw_text.strip():
         raise DecisionParseError("model response must be non-empty text")
     try:
         payload = json.loads(
@@ -40,6 +50,8 @@ def parse_agent_decision(raw_text: str) -> AgentDecision:
         )
     except DecisionParseError:
         raise
+    except RecursionError as exc:
+        raise DecisionParseError("model response is not valid JSON") from exc
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         raise DecisionParseError("model response is not valid JSON") from exc
 
