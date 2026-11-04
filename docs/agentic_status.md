@@ -111,7 +111,7 @@ Validation on GitHub Actions for the merged Task 3 baseline completed successful
 - Release packaging workflow: passed.
 - The focused tool-registry module contains 19 test methods; these are included in the 152-test full suite. PR #10 was merged; the Task 4 starting `main` and feature branch were verified identical at `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`.
 
-## 6. Task 4 — Local llama.cpp provider: IMPLEMENTED; CI PENDING
+## 6. Task 4 — Local llama.cpp provider: IMPLEMENTED; CI PASSED
 
 Implemented on `feat/local-agent-mvp` after verifying that both `main` and the feature branch matched baseline `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`.
 
@@ -131,7 +131,7 @@ Security/behavior:
 - HTTP envelope parsing only; model-generated JSON is not parsed into `AgentDecision`.
 - Provider is not connected to `ToolRegistry`; no agent loop, CLI, persistence, server process management, model download, or model/GPU assumption was added.
 
-Validation has not yet been run for Task 4 at this status snapshot. A real llama-server/model and GPU were not used; CI is intended to use deterministic local test doubles only.
+GitHub Actions validation passed on **CPython 3.11.17** (run 18):\n- `python -m compileall -q app schemas tests`: passed.\n- Full runner suite: **172 tests passed** (0.757 s).\n- Full Docker suite: **172 tests passed** (0.996 s).\n- Production runtime image built; sample smoke test processed **1,618** records with `errors=0`, `blank=0`; output contained 1,618 lines.\n- Release packaging workflow run 8: passed.\n\nThe first run exposed one incorrect test assertion about `urllib.request.Request.host` including the port. The assertion was corrected; the subsequent run passed. No real llama-server/model or GPU was used; provider tests use deterministic local HTTP doubles.
 
 ## 7. Non-negotiable constraints
 
@@ -157,7 +157,7 @@ Validation has not yet been run for Task 4 at this status snapshot. A real llama
 ## 9. Agreed next-step order
 
 1. **Task 3 — Safe read-only tool registry:** merged into main.
-2. **Task 4 — Local llama.cpp provider:** implementation complete; CI validation and review pending.
+2. **Task 4 — Local llama.cpp provider:** implementation complete; GitHub Actions passed; draft PR #11 awaits review.
 3. **Task 5 — Bounded agent loop and strict model-response validation:** not started.
 4. Later: opt-in CLI integration and minimal UI.
 
@@ -165,4 +165,4 @@ Do not skip the registry stage. Do not begin Task 4 until Task 3 is reviewed and
 
 ---
 
-*Task 3 test results above reflect the merged GitHub Actions baseline. Task 4 implementation is on the feature branch; its PR and CI validation are pending. Task 5 has not started.*
+*Task 3 test results above reflect the merged GitHub Actions baseline. Task 4 implementation is on the feature branch; draft PR #11 is open and unmerged. Task 4 CI passed. Task 5 has not started.*
