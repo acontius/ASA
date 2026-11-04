@@ -2,10 +2,10 @@
 
 **Repository:** `acontius/ASA`  
 **Status snapshot:** 2026-11-04  
-**Verified main baseline:** `7b50f65528c4038ccc45c33885003e04b277e128`  
-**Working branch:** `feat/task-5b-agent-loop`
+**Verified main baseline:** `f7132e4351fe6451185f4b578e3ce15235cca0e3`  
+**Working branch:** `feat/task-6-agent-cli`
 
-`main` and `feat/task-5b-agent-loop` both pointed at that baseline before Task 5B. [PR #11](https://github.com/acontius/ASA/pull/11) (local llama.cpp provider) and [PR #12](https://github.com/acontius/ASA/pull/12) (strict decision parser) are merged. No open pull requests were present when this task started.
+That baseline is the merge of [PR #13](https://github.com/acontius/ASA/pull/13). [PR #11](https://github.com/acontius/ASA/pull/11), [PR #12](https://github.com/acontius/ASA/pull/12), and PR #13 are merged. No open pull requests were present when Task 6 started.
 
 ## 1. Current project state
 
@@ -173,21 +173,27 @@ Verified GitHub Actions checks on that PR head, not a new local rerun of the PR:
 
 The workflow file requests Python 3.11. This document does not invent a test count for that run. Task 5A did not dispatch tools or add the agent loop.
 
-## 10. Task 5B — Bounded agent loop: IMPLEMENTED ON THIS BRANCH
+## 10. Task 5B — Bounded agent loop: MERGED
+
+[PR #13](https://github.com/acontius/ASA/pull/13) is merged. It is not a draft and it is not unmerged. The PR head is `3d56a9f2740d9f97cee3ef32230dc85936cb47bd`. The merge commit on `main` is `f7132e4351fe6451185f4b578e3ce15235cca0e3`.
 
 `app/agent/runner.py` connects `AgentRequest`, `AgentConfig`, `AgentRunState`, the injected local provider, `parse_agent_decision`, and `ToolRegistry.dispatch`. The loop is synchronous and single-request. Step accounting, clarification, context limits, and sanitized failures are specified in `docs/agent_contract.md`.
 
-Local validation on this branch used CPython 3.11.2:
+The push to `main` for that merge ran the tests workflow successfully: [run 41852950709](https://github.com/acontius/ASA/actions/runs/41852950709). No real llama-server, GGUF model, or GPU was used for this verification.
 
-- `python3.11 -m compileall -q app schemas tests` passed.
-- `python3.11 -m unittest discover -s tests -v` passed: 215 tests, 0.859s.
+## 11. Task 6 — Opt-in host CLI: IMPLEMENTED ON THIS BRANCH
 
-No real llama-server, GGUF model, or GPU was used. Provider tests and the new loop tests use deterministic fakes. CLI integration and Task 6 were not started. The branch must not be merged without explicit user approval.
+`app/agent/cli.py` is a thin interface. It validates caller arguments, builds `AgentConfig`, `ToolRegistry`, `LocalLlamaCppProvider`, and `AgentRequest`, then calls `run_agent`. It does not add tools, orchestration, scanning, persistence, or a Docker command.
 
-## 11. Agreed next-step order
+The Docker entrypoint is unchanged. A container command would call `127.0.0.1` inside the default bridge network, which is not the host running llama-server. Loopback validation was not weakened to hide that.
+
+No real llama-server, GGUF model, or GPU was used. CLI tests inject fakes. Local validation on this branch used CPython 3.11.2: `python3.11 -m compileall -q app schemas tests` passed, and `python3.11 -m unittest discover -s tests -v` passed with 230 tests. The branch must not be merged without explicit user approval. A UI was not started.
+
+## 12. Agreed next-step order
 
 1. **Task 3 — Safe read-only tool registry:** merged.
 2. **Task 4 — Local llama.cpp provider:** merged as PR #11.
 3. **Task 5A — Strict model-response parser:** merged as PR #12.
-4. **Task 5B — Bounded agent loop:** implemented on `feat/task-5b-agent-loop`; draft PR only, not merged.
-5. Later, and not started here: opt-in CLI integration and a minimal UI.
+4. **Task 5B — Bounded agent loop:** merged as PR #13.
+5. **Task 6 — Opt-in host CLI:** implemented on `feat/task-6-agent-cli`; draft PR only, not merged.
+6. Later, and not started here: a minimal UI.
