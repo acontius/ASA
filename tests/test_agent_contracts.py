@@ -157,6 +157,7 @@ class TestAgentConfig(unittest.TestCase):
         self.assertEqual(config.request_timeout_seconds, 15.0)
         self.assertEqual(config.max_steps, 5)
         self.assertEqual(config.max_output_tokens, 512)
+        self.assertEqual(config.model_alias, "asa-local")
 
     def test_loopback_urls_accepted(self):
         for url in (
@@ -216,6 +217,13 @@ class TestAgentConfig(unittest.TestCase):
         for kwargs in invalid:
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 AgentConfig(**kwargs)
+
+    def test_model_alias_validation(self):
+        self.assertEqual(AgentConfig(model_alias="asa-qwen.local-1").model_alias,
+                         "asa-qwen.local-1")
+        for alias in ("", " ", "two words", "bad\\nalias", "bad/alias", "x" * 65, None):
+            with self.subTest(alias=alias), self.assertRaises(ValueError):
+                AgentConfig(model_alias=alias)
 
     def test_config_is_immutable(self):
         config = AgentConfig()

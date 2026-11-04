@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import math
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -53,9 +54,16 @@ class AgentConfig:
     request_timeout_seconds: float = 15.0
     max_steps: int = 5
     max_output_tokens: int = 512
+    model_alias: str = "asa-local"
 
     def __post_init__(self) -> None:
         _validate_loopback_url(self.server_url)
+
+        if (
+            not isinstance(self.model_alias, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", self.model_alias) is None
+        ):
+            raise ValueError("model_alias must be a 1-64 character identifier")
 
         timeout = self.request_timeout_seconds
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
