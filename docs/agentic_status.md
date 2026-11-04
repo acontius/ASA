@@ -131,7 +131,13 @@ Security/behavior:
 - HTTP envelope parsing only; model-generated JSON is not parsed into `AgentDecision`.
 - Provider is not connected to `ToolRegistry`; no agent loop, CLI, persistence, server process management, model download, or model/GPU assumption was added.
 
-GitHub Actions validation passed on **CPython 3.11.17** (run 18):\n- `python -m compileall -q app schemas tests`: passed.\n- Full runner suite: **172 tests passed** (0.757 s).\n- Full Docker suite: **172 tests passed** (0.996 s).\n- Production runtime image built; sample smoke test processed **1,618** records with `errors=0`, `blank=0`; output contained 1,618 lines.\n- Release packaging workflow run 8: passed.\n\nThe first run exposed one incorrect test assertion about `urllib.request.Request.host` including the port. The assertion was corrected; the subsequent run passed. No real llama-server/model or GPU was used; provider tests use deterministic local HTTP doubles.
+GitHub Actions validation passed on **CPython 3.11.17** (run 18):\n- `python -m compileall -q app schemas tests`: passed.\n- Full runner suite: **172 tests passed** (0.659 s).\n- Full Docker suite: **172 tests passed** (0.746 s).\n- Production runtime image built; sample smoke test processed **1,618** records with `errors=0`, `blank=0`; output contained 1,618 lines.\n- Release packaging workflow run 8: passed.\n\nThe first run exposed one incorrect test assertion about `urllib.request.Request.host` including the port. The assertion was corrected; the subsequent run passed. No real llama-server/model or GPU was used; provider tests use deterministic local HTTP doubles. The final provider test additions also verify frozen messages and reject legacy `function_call` responses.
+
+Task 4 focused commit references:
+- Provider implementation and response validation: `9bdb6eca2832e9e21b14e02192bb8ff7c1c2347f`, `6e47475144ff2263ffddc74073b27714ec13da79`, `e69e2c316802619a81ab0e1c0802ccc85c4936f2`.
+- Model alias configuration: `ae2fc6e1d6d991ecf4ee7f26c50b6084a19250cd`.
+- Provider tests: `dbafa5081c84a583fe326273a9d34ed8eb301b21`, `f3bac6ae2ba0cabb8d11fc702a39a45af898e7c2`.
+- Documentation and status updates are committed on this branch; latest branch head is recorded in the PR.
 
 ## 7. Non-negotiable constraints
 
