@@ -38,6 +38,24 @@ Resume:
 
 The CLI refuses to write outcomes onto the input path. Details: docs/m2_implementation.md.
 
+## Opt-in local agent
+
+The deterministic commands above do not call a model. A separate host command can ask the existing read-only agent one question. It talks only to a llama-server that you start on `127.0.0.1`. It does not download a model, store the conversation, or run as a Docker command. See docs/agent_contract.md.
+
+```bash
+llama-server \
+  --model /absolute/path/to/model.gguf \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --alias asa-local
+
+python3.11 -m app.agent.cli \
+  --workspace-root "$PWD" \
+  --message "What local results are ready?"
+```
+
+Omit `--message` to pass one UTF-8 request on stdin, at most 32768 bytes. A clarification exits after printing that more information is needed; the request is not saved and is not continued.
+
 ## M3 — resolve candidates to official CPE names
 
 M3 does not change the M2 pipeline. It imports a local NVD CPE Dictionary 2.0 JSON file into SQLite, then resolves an outcomes file offline. It does not download NVD data and it does not send scan output anywhere.
@@ -61,11 +79,11 @@ GitHub Actions runs the full suite on Python 3.11 and builds/runs the Docker tes
 
 ## Layout
 
-    app/                 # M2 pipeline, plus app/cpe and app/vulnerability
+    app/                 # M2 pipeline, app/cpe, app/vulnerability, and app/agent
     schemas/models.py    # M1 TypedDict contracts
     schemas/cpe.py       # M3 resolution records
     schemas/vulnerability.py
-    tests/               # M1 through M4 tests
+    tests/               # pipeline, agent, and CLI tests
     docs/                # milestone notes and Docker instructions
     Data/PartOfMe.json   # sample JSONL; never included in runtime image
 
@@ -73,7 +91,7 @@ Supported protocols: SSH, HTTP/HTTPS, FTP, MongoDB. Other protocols are reported
 
 ## Privacy
 
-Scan data stays on the local machine. No stage calls NVD, other APIs, or LLMs. Users download public NVD feeds separately and pass local paths. The CPE resolver and the CVE assessor read only local SQLite files. Fixtures use redacted addresses. Synthetic CVE, CPE Match, and CPE dictionary fixtures are not official NVD downloads. Database files and `out/` are gitignored. `potentially_affected` is not a statement that an asset is confirmed vulnerable.
+Scan data stays on the local machine. The M2, M3, and M4 commands do not call NVD, other APIs, or a model. The optional agent command calls only the loopback llama-server you started; it has no cloud fallback. Users download public NVD feeds and model files separately. Fixtures use redacted addresses. Synthetic CVE, CPE Match, and CPE dictionary fixtures are not official NVD downloads. Database files and `out/` are gitignored. `potentially_affected` is not a statement that an asset is confirmed vulnerable.
 
 ## License
 

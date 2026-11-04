@@ -1,7 +1,7 @@
 # Local Agent Contracts, Run State, and Bounded Loop
 
-**Status:** Tasks 2–5B. Contracts, bounded state, configuration, read-only tools, local provider, strict decision parser, and the synchronous agent loop  
-**Scope:** One local request at a time. No CLI integration and no persisted conversation
+**Status:** Tasks 2–6. Contracts, bounded state, configuration, read-only tools, local provider, strict decision parser, synchronous agent loop, and an opt-in host CLI  
+**Scope:** One local request at a time. The CLI does not persist the conversation
 
 ## 1. Role and trust boundary
 
@@ -209,9 +209,8 @@ The loop does not add tools, widen tool permissions, call the pipeline, write M1
 
 ## 9. Explicitly deferred
 
-This task does **not** implement:
+The host CLI in the next section is only an interface to `run_agent`. This project does **not** implement:
 
-- CLI integration or new commands;
 - a UI;
 - persistent run history, conversation storage, or recovery;
 - resuming a `waiting_for_user` result automatically;
@@ -222,4 +221,51 @@ This task does **not** implement:
 - changes to M1–M4 schemas, pipeline behavior, CLI behavior, or output formats.
 
 No cloud APIs, automatic feed downloads, arbitrary shell execution, or generated Python execution are permitted.
+
+## 10. Opt-in host CLI (Task 6)
+
+`python -m app.agent.cli` builds `AgentConfig`, `ToolRegistry`, `LocalLlamaCppProvider`, and `AgentRequest`, then calls `run_agent`. It does not add tools, orchestration, scanning, or storage.
+
+```bash
+python -m app.agent.cli \
+  --workspace-root /absolute/path/to/asa \
+  --message "What local results are ready?"
+```
+
+Stdin is used only when `--message` is omitted. The two sources cannot be combined. The request is limited to 32768 bytes, must be valid UTF-8, and must not be empty. The read asks for at most 32769 bytes so an oversized request is detected without reading the rest. Nothing from the request or the run is written to disk.
+
+| Argument | Default | Rule |
+|---|---|---|
+| `--workspace-root` | required | Absolute directory chosen by the caller |
+| `--allowed-data-root` | `Data`, `out`, `local-data` | Repeatable relative root; same validation as the registry |
+| `--server-url` | `http://127.0.0.1:8080` | Existing literal-loopback `AgentConfig` rule |
+| `--model-alias` | `asa-local` | Existing identifier rule |
+| `--timeout` | `15` | Seconds, greater than 0 and at most 120 |
+| `--max-steps` | `5` | Integer from 1 through 10 |
+| `--max-output-tokens` | `512` | Integer from 1 through 2048 |
+| `--message` | stdin | One request; not stored |
+
+The workspace root and allowed roots come only from these arguments. Environment variables are not configuration. The model still cannot choose them.
+
+Start llama-server yourself with the command in section 6 before using this CLI. If it is not reachable, the command reports the existing sanitized unavailable result and does not try another server.
+
+Stdout is the result. Stderr is used for argument errors and for an interrupt. Exit codes:
+
+| Result | Code |
+|---|---|
+| `completed` | 0 |
+| `waiting_for_user` | 0 |
+| invalid arguments or configuration | 2 |
+| `failed` | 1 |
+| `cancelled` or keyboard interrupt | 130 |
+
+A waiting result prints the clarification and says the request was not saved. The process exits. It does not ask again or resume.
+
+The printed result is `status`, `steps`, and for a failure the stable `error_code`, plus the result message. Raw provider JSON, tool payloads, exception traces, and credentials are not printed.
+
+### Docker
+
+The Docker entrypoint is unchanged: `scan`, `cpe`, and `vulnerability` only. An `agent` container command is intentionally absent.
+
+`LocalLlamaCppProvider` accepts only a literal loopback URL. Inside the default Compose bridge network, `127.0.0.1` is the container, not the host where llama-server is running. Making the URL accept the host gateway, switching Compose to host networking, or publishing the server port would weaken that boundary, so none of those changes were made. Run the agent CLI on the host. The container remains the deterministic M2–M4 pipeline.
 
