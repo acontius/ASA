@@ -433,7 +433,7 @@ class ToolRegistry:
             records += 1
             if detected == "m2":
                 value = item.get("outcome")
-                counts[value if value in _M2_OUTCOMES else "unrecognized"] += 1
+                counts[value if isinstance(value, str) and value in _M2_OUTCOMES else "unrecognized"] += 1
             elif detected == "m3":
                 resolutions = item.get("candidate_resolutions")
                 if not isinstance(resolutions, list):
@@ -445,10 +445,10 @@ class ToolRegistry:
                         malformed += 1
                         continue
                     value = resolution.get("resolution_status")
-                    counts[value if value in _M3_STATUSES else "unrecognized"] += 1
+                    counts[value if isinstance(value, str) and value in _M3_STATUSES else "unrecognized"] += 1
             else:
                 dataset = item.get("dataset_status")
-                dataset_counts[dataset if dataset in _M4_DATASET_STATUSES else "unrecognized"] += 1
+                dataset_counts[dataset if isinstance(dataset, str) and dataset in _M4_DATASET_STATUSES else "unrecognized"] += 1
                 assessments = item.get("cve_assessments")
                 if not isinstance(assessments, list):
                     malformed += 1
@@ -460,7 +460,7 @@ class ToolRegistry:
                         continue
                     value = assessment.get("assessment_status")
                     assessment_counts[
-                        value if value in _M4_ASSESSMENT_STATUSES else "unrecognized"
+                        value if isinstance(value, str) and value in _M4_ASSESSMENT_STATUSES else "unrecognized"
                     ] += 1
         if records + blank + malformed >= self._limits.max_records and bytes_read < file_size:
             stopped = True
