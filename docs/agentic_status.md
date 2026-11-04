@@ -2,57 +2,49 @@
 
 **Repository:** `acontius/ASA`  
 **Status snapshot:** 2026-11-04  
-**Baseline:** `main` at `ecd9f76a897ba3969e3043b5053a3abdd1de5f2f`  
+**Current main baseline before Task 2:** `e52b0c70353430625946d2977b2c10bc4af41d34`  
 **Working branch:** `feat/local-agent-mvp`
 
 ## 1. Current project state
 
 ASA is a Python 3.11, standard-library-oriented CLI for passive vulnerability assessment. Its deterministic stages process local scan records, identify product/version evidence, resolve evidence against a local CPE dictionary, and assess applicability against locally imported CVE/CPE Match intelligence.
 
-The current repository documents M1 through M4 as implemented. The existing pipeline is the source of truth for extracted evidence, CPE resolutions, CVE records, and assessment statuses. The planned local agent has **not** been implemented in the inspected baseline: there is no agent module or llama.cpp integration in the current application tree.
+M1 through M4 are implemented and remain authoritative for extraction, CPE resolution, CVE records, evidence, findings, and assessment statuses. The agent foundation is isolated under `app/agent/`; it does not modify the deterministic pipeline or existing schemas.
 
-The CLI is not a web service. Runtime processing and intelligence imports consume local paths. No cloud inference or external service is part of the current architecture.
+All processing and future inference must remain local/offline. The planned model runtime is llama.cpp / llama-server bound to loopback only.
 
 ## 2. Completed milestones
 
 ### M1 — Dataset analysis and contracts: COMPLETE
 
-- Profiled the JSONL input envelope and observed protocol-specific structures.
+- Profiled the JSONL input envelope and protocol-specific structures.
 - Defined input, normalized-record, extraction-candidate, and processing-outcome contracts.
 - Established sanitized fixtures for supported protocols, multi-port records, and unsupported protocols.
-- Documented evidence strength and the distinction between missing evidence and processing errors.
 - Acceptance document records all 15 criteria as PASS.
 
 ### M2 — Streaming ingestion and deterministic extraction: COMPLETE
 
-- Implemented line-by-line JSONL ingestion, normalization, protocol extractors, outcome classification, and JSONL output.
-- Implemented byte-offset checkpoints and resume.
+- Implemented line-by-line JSONL ingestion, normalization, protocol extractors, outcome classification, JSONL output, and byte-offset checkpoint/resume.
 - Extractors cover only FTP, HTTP/HTTPS, SSH, and MongoDB.
-- The documented test run on 2026-11-01 reported 41 tests passing.
-- The 1,618-record sample was processed; the documented peak RSS was approximately 18.9 MB.
-- Resume is **at-least-once**, not exactly-once. The 4 GB production dataset was not run.
+- Historical documented run: 41 tests passed; 1,618-record sample processed with approximately 18.9 MB peak RSS.
+- Resume is at-least-once, not exactly-once. The 4 GB production dataset has not been run.
 
 ### M3 — Offline CPE resolution: COMPLETE
 
 - Implemented local NVD CPE Dictionary 2.0 import into SQLite and conservative candidate resolution.
-- Exact matches require strong evidence and a unique active product/version row. Vendor and part are copied only from that unique dictionary row; they are not guessed.
-- M2 outputs and behavior remain unchanged.
-- The documented test run on 2026-11-01 reported 61 tests passing.
-- The official NVD CPE dictionary was not imported; tests use a small synthetic fixture. Version-range matching and alias/fuzzy matching are not implemented.
+- Exact matches require strong evidence and a unique active product/version row; vendor and part are copied from that dictionary row.
+- Historical documented run: 61 tests passed.
+- The official full dictionary has not been imported; version-range and alias/fuzzy matching are not implemented.
 
 ### M4 — Offline CVE intelligence and applicability: COMPLETE
 
 - Implemented local NVD CVE 2.0 and CPE Match 2.0 importers, SQLite storage, and conservative configuration-tree evaluation.
-- Assessment uses verified M3 exact-match inventory and preserves source evidence and CVSS data.
-- Applicability evaluation uses three-valued logic; missing information remains unknown rather than being treated as false.
-- The strongest emitted finding status is `potentially_affected`; the system does not claim `confirmed_vulnerable`.
-- The documented local test run on 2026-11-03 reported 105 tests passing.
-- The official full CVE and CPE Match feeds were not imported. The memory measurement used a 2,000-record synthetic CVE feed, not the official large feeds.
-- GitHub Actions and release workflow results for the M4 PR/main are marked not verified in the acceptance record.
+- Applicability uses three-valued logic; missing information remains unknown.
+- The strongest emitted finding status is `potentially_affected`; there is no confirmed-vulnerable status.
+- Historical documented run: 105 tests passed.
+- Official full CVE and CPE Match feeds have not been imported. GitHub Actions and release workflow outcomes recorded in the M4 acceptance document were not verified there.
 
 ## 3. Existing deterministic pipeline
-
-The current high-level flow is:
 
 ```text
 Local scan JSONL
@@ -66,57 +58,48 @@ Local scan JSONL
   -> JSONL results
 ```
 
-M1–M4 are established behavior and must be preserved. Agent work must be additive and must not silently change extraction, resolution, assessment, output contracts, or existing CLI behavior.
+M1–M4 behavior, schemas, CLI commands, and output formats must remain unchanged.
 
-## 4. Planned local-agent MVP (not implemented)
+## 4. Task 2 — Agent contracts, configuration, and run state: IMPLEMENTED
 
-The intended design is one bounded local agent using **llama.cpp** and a small explicit Python state machine. It is not a multi-agent system and should not introduce a general agent framework without a demonstrated need.
+Added an isolated standard-library-only foundation:
 
-Before implementation, the agent boundary must be specified against the actual M1–M4 contracts. Its permitted inputs, outputs, and decisions must be explicit, deterministic where possible, bounded, and independently testable.
+- `app/agent/contracts.py`: frozen request, decision, and tool-call dataclasses; decision types are `tool_call`, `final_answer`, and `clarification`.
+- `app/agent/state.py`: immutable explicit state machine with terminal states and enforced step budget.
+- `app/agent/config.py`: frozen configuration with conservative timeout/token/step limits and literal-loopback-only HTTP URL validation.
+- `app/agent/__init__.py`: public exports.
+- `tests/test_agent_contracts.py`: focused unittest coverage.
+- `docs/agent_contract.md`: trust boundary, contracts, state transitions, config rules, and deferred work.
 
-Non-negotiable safeguards:
+The only permitted future tool names are `inspect_input`, `check_readiness`, `list_prior_runs`, and `summarize_results`. They are identifiers only; no tools are implemented or executed.
 
-- The agent must never create, rewrite, infer, or modify CVE IDs, CPE identities, security findings, evidence, or assessment statuses.
-- The agent must not upgrade `potentially_affected` to a confirmed vulnerability or reinterpret missing/unknown evidence as a negative result.
-- Any model output must be treated as untrusted advisory output and validated against a strict schema and allow-listed actions before use.
-- The agent must not execute arbitrary shell commands, Python code, tools, or generated code.
-- No active scanning, exploitation, credential testing, or target probing.
-- No cloud APIs, remote inference, telemetry, automatic feed downloads, or external fallbacks. Model inference and all processing remain local/offline.
-- Protocol scope remains strictly FTP, HTTP/HTTPS, SSH, and MongoDB. Do not add protocols.
-- No unnecessary frameworks, orchestration layers, or multi-agent abstractions.
+The existing authoritative schemas in `schemas/models.py`, `schemas/cpe.py`, and `schemas/vulnerability.py` are not duplicated or modified. No model inference, HTTP client, tool execution, agent loop, CLI integration, persistence, or dependencies were added.
 
-## 5. Project constraints and working rules
+## 5. Non-negotiable constraints
 
-- Runtime target: Python 3.11 CLI.
-- Preserve M1–M4 and the deterministic pipeline; changes must be incremental and regression-tested.
-- Keep all data processing and inference local/offline.
-- Do not add network clients, feed auto-downloaders, telemetry, or external inference fallbacks.
-- Do not add active or intrusive security-testing capabilities.
-- Keep scan data, local intelligence feeds, SQLite databases, and generated output out of Git.
-- Document decisions and limitations. Make small, focused commits.
-- Never merge a branch or PR without explicit user approval.
+- Python 3.11 CLI; standard library preferred.
+- Only FTP, HTTP/HTTPS, SSH, and MongoDB remain supported.
+- All processing and inference remain local/offline; no cloud APIs, telemetry, automatic feed downloads, or external inference.
+- Future llama.cpp / llama-server must bind to loopback.
+- No active scanning, exploitation, credential testing, target probing, arbitrary shell/Python execution, or generated-code execution.
+- Agent output is advisory and untrusted. It must never create or modify CVE IDs, CPE identities, evidence, findings, or assessment statuses.
+- `potentially_affected` must never be promoted to a confirmed vulnerability.
+- No LangGraph, multi-agent architecture, Pydantic, or unnecessary dependencies.
+- Changes remain incremental and tested. Never merge a branch or PR without explicit user approval.
 
-## 6. Known limitations in the current baseline
+## 6. Known limitations
 
 - The 4 GB production scan dataset has not been tested.
 - M2 checkpoint resume can repeat a record after a crash between output flush and checkpoint update.
-- M3 has not been validated against the official full CPE dictionary and currently uses exact product/version matching rather than CPE version-range semantics.
+- M3 has not been validated against the official full CPE dictionary and does not implement CPE version-range semantics.
 - M4 has not been validated against the official full CVE and CPE Match feeds.
-- M4 GitHub Actions and release workflow outcomes are not confirmed in the acceptance document.
-- The agent, llama.cpp runtime integration, agent state machine, and agent-specific tests do not yet exist in the inspected baseline.
+- Task 2 contracts validate in-process typed objects only; raw model JSON parsing/validation is deferred.
+- No llama.cpp process, HTTP communication, tool registry, tool execution, agent loop, CLI integration, or run persistence exists.
 
 ## 7. Next step
 
-**Do not start agent implementation yet.** First define and review a minimal agent integration contract using the existing M1–M4 schemas and CLI outputs:
-
-1. Identify the single, bounded task the agent is allowed to perform and the exact existing records it may read.
-2. Specify a strict input/output schema and an allow-list of permitted state transitions.
-3. Make all authoritative security fields immutable and reject any model response that attempts to add or alter them.
-4. Define deterministic validation, timeout/token bounds, local model configuration, and fail-closed behavior when llama.cpp or the model is unavailable.
-5. Add contract and safety tests before wiring the agent into any existing command or pipeline.
-
-The first implementation step should be isolated behind a new opt-in CLI entry point or similarly separate boundary. Existing M1–M4 commands and outputs must remain unchanged. The precise task and CLI shape require review before implementation.
+Task 3 must be separately specified and approved. The likely next boundary is strict validation of untrusted model response text and a local llama.cpp integration design, without adding tool execution or changing M1–M4. Do not proceed automatically.
 
 ---
 
-*This document records the repository state inspected at the baseline SHA above. Historical test counts are taken from the milestone acceptance/implementation documents; they were not rerun as part of this documentation-only change.*
+*Historical M1–M4 test counts above are taken from milestone documentation. Task 2 test results must be recorded only after an actual run; this document update does not claim tests have passed.*
