@@ -151,7 +151,7 @@ class LocalLlamaCppProvider:
         message = first.get("message")
         if not isinstance(message, dict):
             raise ProviderResponseError("missing_assistant_message")
-        if "tool_calls" in message or first.get("finish_reason") == "tool_calls":
+        if (\n            "tool_calls" in message\n            or "function_call" in message\n            or first.get("finish_reason") in {"tool_calls", "function_call"}\n        ):
             raise ProviderResponseError("native_tool_calls_not_supported")
         if message.get("role") != "assistant":
             raise ProviderResponseError("invalid_assistant_role")
