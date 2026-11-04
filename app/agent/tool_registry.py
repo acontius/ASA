@@ -13,7 +13,7 @@ import stat
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, Callable
+from typing import Any, Callable, get_args
 from urllib.parse import urlsplit
 
 from app.agent.contracts import ALLOWED_TOOL_NAMES, AgentDecision
@@ -24,18 +24,10 @@ from schemas.vulnerability import AssessmentStatus, DatasetStatus
 DEFAULT_ALLOWED_DATA_ROOTS = ("Data", "out", "local-data")
 MAX_RESULT_BYTES = 16 * 1024
 _PROTOCOLS = frozenset({"ftp", "http", "https", "ssh", "mongodb"})
-_M2_OUTCOMES = frozenset({
-    "matched", "ambiguous", "no_match", "insufficient_evidence",
-    "processing_error", "unsupported_protocol",
-})
-_M3_STATUSES = frozenset({
-    "exact_match", "review_required", "ambiguous", "product_only",
-    "no_match", "deprecated_only", "skipped_weak", "invalid_candidate",
-})
-_M4_DATASET_STATUSES = frozenset({"assessed", "not_evaluated", "no_match_in_local_feed"})
-_M4_ASSESSMENT_STATUSES = frozenset({
-    "potentially_affected", "not_evaluated", "context_only", "rejected",
-})
+_M2_OUTCOMES = frozenset(get_args(OutcomeKind))
+_M3_STATUSES = frozenset(get_args(ResolutionStatus))
+_M4_DATASET_STATUSES = frozenset(get_args(DatasetStatus))
+_M4_ASSESSMENT_STATUSES = frozenset(get_args(AssessmentStatus))
 
 
 class ToolDispatchError(ValueError):
