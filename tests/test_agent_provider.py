@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import unittest
+from dataclasses import FrozenInstanceError
 from email.message import Message
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
@@ -80,6 +81,8 @@ class ProviderMessageTests(unittest.TestCase):
             with self.subTest(role=role):
                 message = ProviderMessage(role, "hello")
                 self.assertEqual(message.content, "hello")
+                with self.assertRaises(FrozenInstanceError):
+                    message.content = "mutated"
 
     def test_invalid_roles_and_empty_content_rejected(self):
         for role in ("tool", "developer", "", None, []):
@@ -252,6 +255,10 @@ class ProviderFailureTests(unittest.TestCase):
             }}]},
             {"choices": [{"finish_reason": "tool_calls", "message": {
                 "role": "assistant", "content": "",
+            }}]},
+            {"choices": [{"message": {
+                "role": "assistant", "content": "do not execute",
+                "function_call": {"name": "run_shell"},
             }}]},
         )
         for payload in bodies:
