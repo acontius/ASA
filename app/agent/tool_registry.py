@@ -263,16 +263,23 @@ class ToolRegistry:
             if remaining <= 0:
                 stopped = bytes_read < file_size
                 break
-            chunk = stream.readline(min(self._limits.max_line_bytes + 1, remaining + 1))
+            chunk = stream.readline(min(self._limits.max_line_bytes, remaining))
             if not chunk:
                 break
-            if len(chunk) > remaining:
-                bytes_read += remaining
-                stopped = True
-                break
             bytes_read += len(chunk)
-            if len(chunk) > self._limits.max_line_bytes:
+            if (
+                len(chunk) == self._limits.max_line_bytes
+                and not chunk.endswith(b"\\n")
+                and bytes_read < file_size
+            ):
                 oversized = stopped = True
+                break
+            if (
+                bytes_read == self._limits.max_bytes
+                and bytes_read < file_size
+                and not chunk.endswith(b"\\n")
+            ):
+                stopped = True
                 break
             stripped = chunk.strip()
             if not stripped:
@@ -394,16 +401,23 @@ class ToolRegistry:
             if remaining <= 0:
                 stopped = bytes_read < file_size
                 break
-            line = stream.readline(min(self._limits.max_line_bytes + 1, remaining + 1))
+            line = stream.readline(min(self._limits.max_line_bytes, remaining))
             if not line:
                 break
-            if len(line) > remaining:
-                bytes_read += remaining
-                stopped = True
-                break
             bytes_read += len(line)
-            if len(line) > self._limits.max_line_bytes:
+            if (
+                len(line) == self._limits.max_line_bytes
+                and not line.endswith(b"\\n")
+                and bytes_read < file_size
+            ):
                 oversized = stopped = True
+                break
+            if (
+                bytes_read == self._limits.max_bytes
+                and bytes_read < file_size
+                and not line.endswith(b"\\n")
+            ):
+                stopped = True
                 break
             stripped = line.strip()
             if not stripped:
