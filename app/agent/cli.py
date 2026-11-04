@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import os
 import select
 import sys
 import uuid
@@ -183,20 +184,47 @@ def _read_stdin(stdin: BinaryIO) -> str:
 
 
 def _stdin_has_bytes(stdin: BinaryIO) -> bool:
-    if hasattr(stdin, "isatty"):
-        try:
-            if stdin.isatty():
-                return False
-        except (AttributeError, ValueError, OSError):
-            pass
+    """Detect conflicting stdin input without an unbounded read.
+
+    A descriptor being readable is not enough: EOF (including /dev/null and
+    an empty, closed pipe) is readable too. Buffered streams are probed with
+    peek() so actual input is not consumed before the caller rejects the
+    combination. For raw descriptors, at most one byte is read; if it exists,
+    the combination is rejected immediately and the agent is never run.
+    Unknown/non-selectable streams are treated conservatively as conflicting.
+    """
+    try:
+        if stdin.isatty():
+            return False
+    except (AttributeError, ValueError, OSError):
+        pass
+
     if isinstance(stdin, io.BytesIO):
         return bool(stdin.getvalue()[stdin.tell() :])
+
     try:
         fileno = stdin.fileno()
     except (AttributeError, io.UnsupportedOperation, OSError, ValueError):
+        return True
+
+    try:
+        readable, _, _ = select.select([fileno], [], [], 0)
+    except (OSError, TypeError, ValueError):
+        return True
+    if not readable:
         return False
-    readable, _, _ = select.select([fileno], [], [], 0)
-    return bool(readable)
+
+    peek = getattr(stdin, "peek", None)
+    if callable(peek):
+        try:
+            return bool(peek(1))
+        except (OSError, ValueError):
+            return True
+
+    try:
+        return bool(os.read(fileno, 1))
+    except (OSError, ValueError):
+        return True
 
 
 def _print_result(result: AgentRunResult) -> None:

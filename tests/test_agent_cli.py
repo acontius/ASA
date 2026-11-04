@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import io
+import json
+import os
 import subprocess
 import sys
+import threading
 import tempfile
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from app.agent.cli import MAX_REQUEST_BYTES, main
+from app.agent.cli import MAX_REQUEST_BYTES, _stdin_has_bytes, main
 from app.agent.config import AgentConfig
 from app.agent.contracts import AgentRequest
 from app.agent.runner import AgentRunResult
@@ -377,6 +381,188 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(rejected.returncode, 2)
         self.assertIn("unknown ASA command", rejected.stderr)
+
+
+class StdinDetectionTests(unittest.TestCase):
+    def test_dev_null_is_empty_even_though_select_reports_readable(self):
+        with open(os.devnull, "rb") as stream:
+            self.assertFalse(_stdin_has_bytes(stream))
+
+    def test_closed_empty_os_pipe_is_empty(self):
+        read_fd, write_fd = os.pipe()
+        os.close(write_fd)
+        try:
+            with os.fdopen(read_fd, "rb") as stream:
+                self.assertFalse(_stdin_has_bytes(stream))
+        finally:
+            # fdopen owns and closes read_fd unless construction failed.
+            try:
+                os.close(read_fd)
+            except OSError:
+                pass
+
+    def test_nonempty_os_pipe_is_detected_without_consuming_buffered_input(self):
+        read_fd, write_fd = os.pipe()
+        try:
+            os.write(write_fd, b"actual piped input")
+        finally:
+            os.close(write_fd)
+        try:
+            with os.fdopen(read_fd, "rb") as stream:
+                self.assertTrue(_stdin_has_bytes(stream))
+                self.assertEqual(stream.read(), b"actual piped input")
+        finally:
+            try:
+                os.close(read_fd)
+            except OSError:
+                pass
+
+    def test_terminal_stdin_is_not_a_conflicting_second_source(self):
+        class TerminalStream(io.BytesIO):
+            def isatty(self):
+                return True
+
+        self.assertFalse(_stdin_has_bytes(TerminalStream(b"terminal input")))
+
+    def test_nonselectable_unknown_stream_is_conservatively_rejected(self):
+        class UnsupportedStream:
+            def isatty(self):
+                return False
+
+            def fileno(self):
+                raise io.UnsupportedOperation("no file descriptor")
+
+        self.assertTrue(_stdin_has_bytes(UnsupportedStream()))
+
+
+class CliProviderIntegrationTests(unittest.TestCase):
+    def test_subprocess_cli_uses_real_loopback_provider_and_runner_with_devnull(self):
+        decision = json.dumps(
+            {"kind": "final_answer", "message": "integration answer", "tool_call": None},
+            separators=(",", ":"),
+        )
+
+        class Handler(BaseHTTPRequestHandler):
+            requests = []
+            validation_errors = []
+
+            def log_message(self, format, *args):
+                pass
+
+            def _send_json(self, payload):
+                body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                self.requests.append({
+                    "method": "GET",
+                    "path": self.path,
+                    "host": self.headers.get("Host"),
+                })
+                if self.path != "/health":
+                    self.validation_errors.append("unexpected health path")
+                    self.send_error(404)
+                    return
+                # Exact successful response required by LocalLlamaCppProvider.
+                self._send_json({"status": "ok"})
+
+            def do_POST(self):
+                if self.path != "/v1/chat/completions":
+                    self.validation_errors.append("unexpected completion path")
+                length = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(length)
+                try:
+                    payload = json.loads(raw.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    self.validation_errors.append("request body was not JSON")
+                    self._send_json({"choices": [{
+                        "message": {"role": "assistant", "content": decision},
+                        "finish_reason": "stop",
+                    }]})
+                    return
+
+                self.requests.append({
+                    "method": "POST",
+                    "path": self.path,
+                    "host": self.headers.get("Host"),
+                    "payload": payload,
+                })
+                expected_keys = {
+                    "model", "messages", "max_tokens", "temperature", "stream"
+                }
+                if set(payload) != expected_keys:
+                    self.validation_errors.append("unexpected completion fields")
+                if payload.get("model") != "asa-local":
+                    self.validation_errors.append("unexpected model alias")
+                messages = payload.get("messages")
+                if not isinstance(messages, list) or len(messages) != 2:
+                    self.validation_errors.append("unexpected message count")
+                else:
+                    if [m.get("role") for m in messages] != ["system", "user"]:
+                        self.validation_errors.append("unexpected message roles")
+                    if "integration request" not in messages[1].get("content", ""):
+                        self.validation_errors.append("user message missing")
+                if payload.get("max_tokens") != 512:
+                    self.validation_errors.append("unexpected max_tokens")
+                if payload.get("temperature") != 0 or payload.get("stream") is not False:
+                    self.validation_errors.append("unexpected generation settings")
+                if "tools" in payload or "tool_choice" in payload:
+                    self.validation_errors.append("tool schema must not be sent")
+                self._send_json({"choices": [{
+                    "message": {"role": "assistant", "content": decision},
+                    "finish_reason": "stop",
+                }]})
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        host, port = server.server_address
+        self.assertEqual(host, "127.0.0.1")
+        Handler.requests = []
+        Handler.validation_errors = []
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+
+        with tempfile.TemporaryDirectory() as workspace:
+            before = set(Path(workspace).rglob("*"))
+            command = [
+                sys.executable, "-m", "app.agent.cli",
+                "--workspace-root", workspace,
+                "--server-url", f"http://127.0.0.1:{port}",
+                "--message", "integration request",
+            ]
+            result = None
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=ROOT,
+                    stdin=subprocess.DEVNULL,
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                    check=False,
+                )
+            finally:
+                server.shutdown()
+                server_thread.join(timeout=5)
+                server.server_close()
+
+            self.assertIsNotNone(result)
+            self.assertFalse(server_thread.is_alive(), "HTTP server thread did not stop")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("status: completed", result.stdout)
+            self.assertIn("steps: 1", result.stdout)
+            self.assertIn("integration answer", result.stdout)
+            self.assertEqual(Handler.validation_errors, [])
+            self.assertEqual(
+                [(item["method"], item["path"]) for item in Handler.requests],
+                [("GET", "/health"), ("POST", "/v1/chat/completions")],
+            )
+            expected_host = f"127.0.0.1:{port}"
+            self.assertTrue(all(item["host"] == expected_host for item in Handler.requests))
+            self.assertEqual(set(Path(workspace).rglob("*")), before)
 
 
 if __name__ == "__main__":
