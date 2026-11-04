@@ -74,7 +74,31 @@ IPv4 loopback addresses and IPv6 `::1` are accepted. Hostnames (including `local
 
 The configuration object performs validation only. It does not load environment variables, open sockets, contact llama.cpp, discover models, or download model files. The eventual llama.cpp / llama-server process must bind to loopback; this URL validation is a configuration guard, not a substitute for runtime/network isolation.
 
-## 5. Explicitly deferred
+
+## 5. Read-only tool registry (Task 3)
+
+`ToolRegistry` in `app/agent/tool_registry.py` dispatches only an `AgentDecision` whose kind is `tool_call`. Its handler map must match the four identifiers in `ALLOWED_TOOL_NAMES`; there is no dynamic import, shell, Python execution, pipeline invocation, or network access.
+
+| Tool | Exact arguments | Behavior |
+|---|---|---|
+| `inspect_input` | `input_path` | Bounded streaming inspection of an input JSONL file |
+| `check_readiness` | At least one of `input_path`, `cpe_db_path`, `vulnerability_db_path` | Read-only checks of explicitly supplied prerequisites |
+| `list_prior_runs` | None | Reports `available: false`; persistence does not exist |
+| `summarize_results` | `results_path` | Counts recognized M2, M3, or M4 fields without returning records |
+
+The trusted caller supplies an absolute workspace root, allowed relative data roots (default: `Data/`, `out/`, `local-data/`), and hard limits. The model supplies only a relative file path. Absolute paths, traversal, URLs, home markers, hidden paths, symlinks, non-regular files, and paths outside those roots are rejected. Files are opened read-only using directory-relative opens with no-follow flags. The workspace root and allowed roots are never model-controlled.
+
+Default ceilings are 64 MiB per file, 100,000 inspected lines/records, and 1 MiB per line. Limit hits are explicit in the result; partial counts are never labelled complete. Result envelopes are JSON-compatible and capped at 16 KiB. SQLite prerequisites are opened with `mode=ro` and `immutable=1`; only bounded schema metadata is returned.
+
+M2 summaries count the schema-defined `outcome` field. M3 summaries count `candidate_resolutions[].resolution_status`. M4 summaries count `dataset_status` and `cve_assessments[].assessment_status`. The status allow-lists are derived from the existing schema `Literal` types. No IDs, CPEs, CVEs, evidence, findings, or assessment statuses are generated or modified. In particular, `potentially_affected` remains exactly as stored.
+
+`list_prior_runs` does not inspect output directories and never treats pipeline artifacts as agent history. No persistence is implemented.
+
+## 6. Explicitly deferred
+
+Task 4 is the local llama.cpp provider only. Task 5 is the bounded agent loop and strict model-response validation. CLI integration and UI remain later work. The registry is deliberately implemented before provider or loop integration.
+
+## 7. Explicitly deferred
 
 This task does **not** implement:
 
