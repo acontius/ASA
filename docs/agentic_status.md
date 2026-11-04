@@ -163,12 +163,13 @@ Task 4 focused commit references:
 ## 9. Agreed next-step order
 
 1. **Task 3 — Safe read-only tool registry:** merged into main.
-2. **Task 4 — Local llama.cpp provider:** implementation complete; GitHub Actions passed; draft PR #11 awaits review.
-3. **Task 5 — Bounded agent loop and strict model-response validation:** not started.
-4. Later: opt-in CLI integration and minimal UI.
+2. **Task 4 — Local llama.cpp provider:** implementation complete; draft PR #11 awaits review.
+3. **Task 5A — Strict model-response parser:** implemented on `feat/task-5a-decision-parser`; parser tests added. Python 3.11 validation is pending CI because the current execution environment provides Python 3.13.5 and no `python3.11` executable.
+4. **Task 5B — Bounded agent loop:** not implemented; remains outside Task 5A scope.
+5. Later: opt-in CLI integration and minimal UI.
 
-Do not skip the registry stage. Do not begin Task 4 until Task 3 is reviewed and explicitly complete.
+Task 5A is limited to parsing and validating raw model response text into the existing `AgentDecision` contract. It does not dispatch tools, add an agent loop, or modify M1–M4 authority. The changes are proposed for review and must not be merged without explicit user approval.
 
 ---
 
-*Task 3 test results above reflect the merged GitHub Actions baseline. Task 4 implementation is on the feature branch; draft PR #11 is open and unmerged. Task 4 CI passed. Task 5 has not started.*
+*Task 5A test execution results are recorded only after an actual run. No Python 3.11 test result is claimed by this status update.*
