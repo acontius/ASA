@@ -200,7 +200,7 @@ class ToolRegistry:
             raise ToolDispatchError("tool_call decision is missing its ToolCall")
         handler = self._handlers.get(call.name)
         if handler is None:
-            return ToolResult(call.name, False, {}, "unknown_tool")
+            raise ToolDispatchError("unknown_tool")
         arguments = dict(call.arguments)
         try:
             self._validate_arguments(call.name, arguments)
