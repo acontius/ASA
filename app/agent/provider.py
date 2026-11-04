@@ -55,7 +55,7 @@ class ProviderMessage:
     content: str
 
     def __post_init__(self) -> None:
-        if self.role not in {"system", "user", "assistant"}:
+        if not isinstance(self.role, str) or self.role not in {"system", "user", "assistant"}:
             raise ValueError("role must be system, user, or assistant")
         if not isinstance(self.content, str) or not self.content.strip():
             raise ValueError("content must be non-empty text")
@@ -153,6 +153,8 @@ class LocalLlamaCppProvider:
             raise ProviderResponseError("missing_assistant_message")
         if "tool_calls" in message or first.get("finish_reason") == "tool_calls":
             raise ProviderResponseError("native_tool_calls_not_supported")
+        if message.get("role") != "assistant":
+            raise ProviderResponseError("invalid_assistant_role")
         content = message.get("content")
         if not isinstance(content, str) or not content.strip():
             raise ProviderResponseError("empty_or_invalid_assistant_content")
