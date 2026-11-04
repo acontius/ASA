@@ -4,7 +4,11 @@ from __future__ import annotations
 import unittest
 
 from app.agent.contracts import AgentDecision, ToolCall
-from app.agent.decision_parser import DecisionParseError, parse_agent_decision
+from app.agent.decision_parser import (
+    MAX_DECISION_BYTES,
+    DecisionParseError,
+    parse_agent_decision,
+)
 
 
 class TestDecisionParser(unittest.TestCase):
@@ -90,6 +94,20 @@ class TestDecisionParser(unittest.TestCase):
             parse_agent_decision(
                 '{"kind":"final_answer","message":"x","tool_call":null,"x":Infinity}'
             )
+
+    def test_oversized_text_rejected_without_echoing_it(self):
+        raw = "z" * (MAX_DECISION_BYTES + 1)
+        with self.assertRaises(DecisionParseError) as caught:
+            parse_agent_decision(raw)
+        self.assertEqual(str(caught.exception), "model response exceeds size limit")
+        self.assertNotIn(raw[:32], str(caught.exception))
+
+    def test_deeply_nested_json_raises_decision_parse_error(self):
+        raw = "[" * 2000 + "]" * 2000
+        with self.assertRaises(DecisionParseError) as caught:
+            parse_agent_decision(raw)
+        self.assertEqual(str(caught.exception), "model response is not valid JSON")
+        self.assertLess(len(str(caught.exception)), 200)
 
 
 if __name__ == "__main__":
