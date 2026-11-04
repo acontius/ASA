@@ -11,6 +11,7 @@ from app.agent.contracts import (
     ToolCall,
     ToolName,
 )
+from app.agent.tool_registry import ToolDispatchError, ToolLimits, ToolRegistry, ToolResult
 from app.agent.state import (
     AgentRunState,
     InvalidTransitionError,
@@ -28,5 +29,9 @@ __all__ = [
     "RunStatus",
     "StepLimitExceeded",
     "ToolCall",
+    "ToolDispatchError",
+    "ToolLimits",
     "ToolName",
+    "ToolRegistry",
+    "ToolResult",
 ]

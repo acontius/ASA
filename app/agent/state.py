@@ -61,8 +61,8 @@ class AgentRunState:
             raise ValueError("steps_completed must be an integer")
         if isinstance(self.max_steps, bool) or not isinstance(self.max_steps, int):
             raise ValueError("max_steps must be an integer")
-        if self.max_steps < 1:
-            raise ValueError("max_steps must be at least 1")
+        if not 1 <= self.max_steps <= 10:
+            raise ValueError("max_steps must be between 1 and 10")
         if self.steps_completed < 0 or self.steps_completed > self.max_steps:
             raise ValueError("steps_completed must be between 0 and max_steps")
 

@@ -141,6 +141,7 @@ class TestRunState(unittest.TestCase):
     def test_invalid_run_limits_rejected(self):
         for kwargs in (
             {"max_steps": 0},
+            {"max_steps": 11},
             {"max_steps": True},
             {"steps_completed": -1},
             {"steps_completed": 2, "max_steps": 1},
