@@ -1,9 +1,11 @@
 # Agentic Development Status
 
-**Repository:** \`acontius/ASA\`  
+**Repository:** `acontius/ASA`  
 **Status snapshot:** 2026-11-04  
-**Main baseline for Task 4:** \`3f9075837cda1fb3f6357fa6c52b3e7c2c77104e\`  
-**Working branch:** \`feat/local-agent-mvp\`
+**Verified main baseline:** `7b50f65528c4038ccc45c33885003e04b277e128`  
+**Working branch:** `feat/task-5b-agent-loop`
+
+`main` and `feat/task-5b-agent-loop` both pointed at that baseline before Task 5B. [PR #11](https://github.com/acontius/ASA/pull/11) (local llama.cpp provider) and [PR #12](https://github.com/acontius/ASA/pull/12) (strict decision parser) are merged. No open pull requests were present when this task started.
 
 ## 1. Current project state
 
@@ -111,9 +113,9 @@ Validation on GitHub Actions for the merged Task 3 baseline completed successful
 - Release packaging workflow: passed.
 - The focused tool-registry module contains 19 test methods; these are included in the 152-test full suite. PR #10 was merged; the Task 4 starting `main` and feature branch were verified identical at `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`.
 
-## 6. Task 4 — Local llama.cpp provider: IMPLEMENTED; CI PASSED
+## 6. Task 4 — Local llama.cpp provider: MERGED
 
-Implemented on `feat/local-agent-mvp` after verifying that both `main` and the feature branch matched baseline `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`.
+Implemented on `feat/local-agent-mvp` after verifying that both `main` and the feature branch matched baseline `3f9075837cda1fb3f6357fa6c52b3e7c2c77104e`. [PR #11](https://github.com/acontius/ASA/pull/11) was merged at `6f77d7924a941caa4af95c43e424cad92ed2eefe`. It is not an open draft.
 
 Files changed:
 - `app/agent/provider.py`: synchronous local HTTP provider, immutable text-only `ProviderMessage`, bounded requests/responses, health check, raw assistant text return, and sanitized typed exceptions.
@@ -129,7 +131,7 @@ Security/behavior:
 - Request ceiling: 16 messages and 256 KiB serialized JSON. Response body ceiling: 1 MiB, detected with a bounded read of at most limit + 1.
 - Completion payload contains only model alias, role/content messages, max tokens, temperature zero, and stream false. No tool/MCP/function schema.
 - HTTP envelope parsing only; model-generated JSON is not parsed into `AgentDecision`.
-- Provider is not connected to `ToolRegistry`; no agent loop, CLI, persistence, server process management, model download, or model/GPU assumption was added.
+- Task 4 itself did not connect the provider to `ToolRegistry` and did not add an agent loop, CLI, persistence, server process management, model download, or model/GPU assumption. Task 5B is the loop that connects them.
 
 GitHub Actions validation passed on **CPython 3.11.17** (run 18):\n- `python -m compileall -q app schemas tests`: passed.\n- Full runner suite: **172 tests passed** (0.659 s).\n- Full Docker suite: **172 tests passed** (0.746 s).\n- Production runtime image built; sample smoke test processed **1,618** records with `errors=0`, `blank=0`; output contained 1,618 lines.\n- Release packaging workflow run 8: passed.\n\nThe first run exposed one incorrect test assertion about `urllib.request.Request.host` including the port. The assertion was corrected; the subsequent run passed. No real llama-server/model or GPU was used; provider tests use deterministic local HTTP doubles. The final provider test additions also verify frozen messages and reject legacy `function_call` responses.
 
@@ -158,18 +160,34 @@ Task 4 focused commit references:
 - M3 has not been validated against the official full CPE dictionary and does not implement CPE version-range semantics.
 - M4 has not been validated against the official full CVE and CPE Match feeds.
 - Task 3 readiness reports SQLite table names and user_version metadata; it does not certify application-level compatibility with a particular production database version.
-- The registry is not yet connected to the model provider or agent loop; Task 4 deliberately leaves this integration deferred.
+- Task 5B connects the registry, provider, parser, and run state for a single request. It does not persist a transcript or resume `waiting_for_user`. No real llama-server, GGUF model, or GPU was used to validate the loop.
 
-## 9. Agreed next-step order
+## 9. Task 5A — Strict decision parser: MERGED
 
-1. **Task 3 — Safe read-only tool registry:** merged into main.
-2. **Task 4 — Local llama.cpp provider:** implementation complete; draft PR #11 awaits review.
-3. **Task 5A — Strict model-response parser:** implemented on `feat/task-5a-decision-parser`; parser tests added. Python 3.11 validation is pending CI because the current execution environment provides Python 3.13.5 and no `python3.11` executable.
-4. **Task 5B — Bounded agent loop:** not implemented; remains outside Task 5A scope.
-5. Later: opt-in CLI integration and minimal UI.
+[PR #12](https://github.com/acontius/ASA/pull/12) was merged at `7b50f65528c4038ccc45c33885003e04b277e128`. The implementation commit is `4a72f01a95f1ecc07cbbf47c078b705c7cbe4a3f`. The earlier statement that this PR was still awaiting review, and that Python 3.11 validation was pending because the author environment had only Python 3.13.5, is stale.
 
-Task 5A is limited to parsing and validating raw model response text into the existing `AgentDecision` contract. It does not dispatch tools, add an agent loop, or modify M1–M4 authority. The changes are proposed for review and must not be merged without explicit user approval.
+Verified GitHub Actions checks on that PR head, not a new local rerun of the PR:
 
----
+- `test` job succeeded: [run 41797306119](https://github.com/acontius/ASA/actions/runs/41797306119)
+- `package` job succeeded: [run 41797306025](https://github.com/acontius/ASA/actions/runs/41797306025)
 
-*Task 5A test execution results are recorded only after an actual run. No Python 3.11 test result is claimed by this status update.*
+The workflow file requests Python 3.11. This document does not invent a test count for that run. Task 5A did not dispatch tools or add the agent loop.
+
+## 10. Task 5B — Bounded agent loop: IMPLEMENTED ON THIS BRANCH
+
+`app/agent/runner.py` connects `AgentRequest`, `AgentConfig`, `AgentRunState`, the injected local provider, `parse_agent_decision`, and `ToolRegistry.dispatch`. The loop is synchronous and single-request. Step accounting, clarification, context limits, and sanitized failures are specified in `docs/agent_contract.md`.
+
+Local validation on this branch used CPython 3.11.2:
+
+- `python3.11 -m compileall -q app schemas tests` passed.
+- `python3.11 -m unittest discover -s tests -v` passed: 215 tests, 0.859s.
+
+No real llama-server, GGUF model, or GPU was used. Provider tests and the new loop tests use deterministic fakes. CLI integration and Task 6 were not started. The branch must not be merged without explicit user approval.
+
+## 11. Agreed next-step order
+
+1. **Task 3 — Safe read-only tool registry:** merged.
+2. **Task 4 — Local llama.cpp provider:** merged as PR #11.
+3. **Task 5A — Strict model-response parser:** merged as PR #12.
+4. **Task 5B — Bounded agent loop:** implemented on `feat/task-5b-agent-loop`; draft PR only, not merged.
+5. Later, and not started here: opt-in CLI integration and a minimal UI.
