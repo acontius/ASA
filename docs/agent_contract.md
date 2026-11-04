@@ -232,7 +232,7 @@ python -m app.agent.cli \
   --message "What local results are ready?"
 ```
 
-Stdin is used only when `--message` is omitted. The two sources cannot be combined. The request is limited to 32768 bytes, must be valid UTF-8, and must not be empty. The read asks for at most 32769 bytes so an oversized request is detected without reading the rest. Nothing from the request or the run is written to disk.
+Stdin is used only when `--message` is omitted. The two sources cannot be combined when stdin contains actual bytes: terminal stdin and EOF (including `/dev/null` or a closed empty pipe) are allowed with `--message`. The check is bounded; if stdin contains data, the CLI rejects the combination before running the agent. Unsupported streams are treated conservatively as conflicting. The request is limited to 32768 bytes, must be valid UTF-8, and must not be empty. The read asks for at most 32769 bytes so an oversized request is detected without reading the rest. Nothing from the request or the run is written to disk.
 
 | Argument | Default | Rule |
 |---|---|---|

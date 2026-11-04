@@ -2,10 +2,10 @@
 
 **Repository:** `acontius/ASA`  
 **Status snapshot:** 2026-11-04  
-**Verified main baseline:** `f7132e4351fe6451185f4b578e3ce15235cca0e3`  
-**Working branch:** `feat/task-6-agent-cli`
+**Verified main baseline for Task 6.1:** `17fbdc1f6b01111381e707f9c594f13cdebe4ff9`  
+**Working branch:** `fix/task-6-cli-hardening`
 
-That baseline is the merge of [PR #13](https://github.com/acontius/ASA/pull/13). [PR #11](https://github.com/acontius/ASA/pull/11), [PR #12](https://github.com/acontius/ASA/pull/12), and PR #13 are merged. No open pull requests were present when Task 6 started.
+The verified baseline is the merge of [PR #14](https://github.com/acontius/ASA/pull/14). PRs [#11](https://github.com/acontius/ASA/pull/11), [#12](https://github.com/acontius/ASA/pull/12), [#13](https://github.com/acontius/ASA/pull/13), and [#14](https://github.com/acontius/ASA/pull/14) are merged. Task 6.1 starts from the verified main SHA above.
 
 ## 1. Current project state
 
@@ -181,19 +181,24 @@ The workflow file requests Python 3.11. This document does not invent a test cou
 
 The push to `main` for that merge ran the tests workflow successfully: [run 41852950709](https://github.com/acontius/ASA/actions/runs/41852950709). No real llama-server, GGUF model, or GPU was used for this verification.
 
-## 11. Task 6 — Opt-in host CLI: IMPLEMENTED ON THIS BRANCH
+## 11. Task 6 — Opt-in host CLI: MERGED
 
-`app/agent/cli.py` is a thin interface. It validates caller arguments, builds `AgentConfig`, `ToolRegistry`, `LocalLlamaCppProvider`, and `AgentRequest`, then calls `run_agent`. It does not add tools, orchestration, scanning, persistence, or a Docker command.
+`app/agent/cli.py` is a thin interface merged by [PR #14](https://github.com/acontius/ASA/pull/14) at `17fbdc1f6b01111381e707f9c594f13cdebe4ff9`. It validates caller arguments, builds `AgentConfig`, `ToolRegistry`, `LocalLlamaCppProvider`, and `AgentRequest`, then calls `run_agent`. It does not add tools, orchestration, scanning, persistence, or a Docker command.
 
 The Docker entrypoint is unchanged. A container command would call `127.0.0.1` inside the default bridge network, which is not the host running llama-server. Loopback validation was not weakened to hide that.
 
-No real llama-server, GGUF model, or GPU was used. CLI tests inject fakes. Local validation on this branch used CPython 3.11.2: `python3.11 -m compileall -q app schemas tests` passed, and `python3.11 -m unittest discover -s tests -v` passed with 230 tests. The branch must not be merged without explicit user approval. A UI was not started.
+No real llama-server, GGUF model, or GPU was used. The merged Task 6 CI report recorded 230 tests on CPython 3.11.2; its CLI tests inject fakes. The Docker entrypoint remains unchanged, and a UI was not started.
 
-## 12. Agreed next-step order
+## 12. Task 6.1 — CLI hardening: IN PROGRESS
+
+Task 6.1 starts from main SHA `17fbdc1f6b01111381e707f9c594f13cdebe4ff9`. It addresses stdin EOF detection, adds OS-level pipe/`/dev/null` regressions and a subprocess integration test through the actual loopback provider and runner, and corrects this status document. Test results for this task must be reported from its actual CI run; no real llama-server, GGUF model, or GPU is part of the validation.
+
+## 13. Agreed next-step order
 
 1. **Task 3 — Safe read-only tool registry:** merged.
 2. **Task 4 — Local llama.cpp provider:** merged as PR #11.
 3. **Task 5A — Strict model-response parser:** merged as PR #12.
 4. **Task 5B — Bounded agent loop:** merged as PR #13.
-5. **Task 6 — Opt-in host CLI:** implemented on `feat/task-6-agent-cli`; draft PR only, not merged.
-6. Later, and not started here: a minimal UI.
+5. **Task 6 — Opt-in host CLI:** merged as PR #14.
+6. **Task 6.1 — CLI hardening and end-to-end integration coverage:** in progress on `fix/task-6-cli-hardening`; do not merge without explicit approval.
+7. Later, and not started here: a minimal UI.
