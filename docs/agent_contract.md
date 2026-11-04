@@ -1,7 +1,7 @@
 # Local Agent Contracts and Run State
 
-**Status:** Task 2 foundation + Task 3 read-only registry  
-**Scope:** Contracts, bounded state, validated configuration, and four read-only tools
+**Status:** Task 2 foundation + Task 3 read-only registry + Task 4 local provider  
+**Scope:** Contracts, bounded state, validated configuration, four read-only tools, and synchronous local inference
 
 ## 1. Role and trust boundary
 
@@ -68,11 +68,11 @@ No persistence, scheduling, retries, or orchestration is included.
 | `server_url` | `http://127.0.0.1:8080` | HTTP URL with a literal loopback IP only; no credentials, path, query, or fragment |
 | `request_timeout_seconds` | `15.0` | Greater than 0 and at most 120 |
 | `max_steps` | `5` | Integer from 1 to 10 |
-| `max_output_tokens` | `512` | Integer from 1 to 2048 |
+| `max_output_tokens` | `512` | Integer from 1 to 2048 |\n| `model_alias` | `asa-local` | 1–64 ASCII letters, digits, dots, underscores, or hyphens; starts with a letter or digit |
 
 IPv4 loopback addresses and IPv6 `::1` are accepted. Hostnames (including `localhost`), LAN/public addresses, HTTPS, URL credentials, paths, queries, fragments, malformed ports, booleans masquerading as integers, and non-finite timeouts are rejected.
 
-The configuration object performs validation only. It does not load environment variables, open sockets, contact llama.cpp, discover models, or download model files. The eventual llama.cpp / llama-server process must bind to loopback; this URL validation is a configuration guard, not a substitute for runtime/network isolation.
+The configuration object performs validation only. It does not load environment variables, open sockets, contact llama.cpp, discover models, or download model files. The model alias is trusted configuration; the llama-server must be started with the matching `--alias asa-local` (or the configured alias). The URL validation is a configuration guard, not a substitute for runtime/network isolation.
 
 
 ## 5. Read-only tool registry (Task 3)
@@ -94,14 +94,46 @@ M2 summaries count the schema-defined `outcome` field. M3 summaries count `candi
 
 `list_prior_runs` does not inspect output directories and never treats pipeline artifacts as agent history. No persistence is implemented.
 
-## 6. Explicitly deferred
+## 6. Local llama.cpp provider (Task 4)
+
+`LocalLlamaCppProvider` in `app/agent/provider.py` is a synchronous standard-library HTTP client. It accepts only a trusted immutable `AgentConfig` and exposes:
+
+- `health_check() -> bool`: `GET /health`; exactly `{"status":"ok"}` at HTTP 200 is ready, and HTTP 503 is a normal not-ready result (`False`). Other HTTP, transport, timeout, or malformed-response conditions raise sanitized provider exceptions.
+- `complete(messages) -> str`: `POST /v1/chat/completions`; returns the first assistant message's raw text content. It does not parse model-generated JSON or create an `AgentDecision`.
+
+`ProviderMessage` is an immutable role/content pair. Only `system`, `user`, and `assistant` roles are accepted. A request is limited to 16 messages and 256 KiB of encoded JSON. Response reads are capped at 1 MiB (one extra byte is read only to detect overflow). The payload contains only the configured model alias, validated messages, configured `max_tokens`, `temperature: 0`, and `stream: false`; no tools, tool choice, MCP, or function definitions are sent.
+
+Transport safeguards:
+- The destination is derived only from the validated literal-loopback `AgentConfig.server_url` and fixed endpoint paths. Messages and model output cannot choose a URL, host, port, model alias, or timeout.
+- An explicit empty `ProxyHandler` prevents proxy environment variables from being used. Redirects are rejected, not followed.
+- The request uses the configured bounded timeout; there are no automatic retries or remote fallbacks.
+- Response reads have a hard byte ceiling. Exceptions expose controlled status/error labels only, never prompt text, raw response bodies, credentials, or server diagnostics.
+- The provider does not start or manage llama-server and has no connection to `ToolRegistry`. It does not execute native tool calls.
+
+### Manual local server setup
+
+Start llama-server manually after obtaining a model file through your own approved offline process. This example assumes the file already exists:
+
+```bash
+llama-server \
+  --model "/absolute/path/to/model.gguf" \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --alias asa-local
+```
+
+Do not bind to `0.0.0.0`; do not use `-hf` or `--model-url`; do not enable `--tools all`; and do not configure `--mcp-servers-config` or `--mcp-servers-json`. No model is downloaded automatically and Python does not launch the server.
+
+Qwen3 8B GGUF Q4_K_M is only an optional manual candidate; its local availability and suitability on the target 16 GB RAM / 8 GB VRAM machine have not been verified. Check the installed `llama-server --help` for supported GPU offload flags and determine the number of layers empirically; do not assume all layers fit in VRAM.
+
+## 7. Explicitly deferred
 
 This task does **not** implement:
 
-- llama.cpp provider code, model loading, inference, or prompt construction;
-- HTTP requests or server health checks;
-- raw JSON parsing or strict validation of model-generated response text;
-- an agent loop, CLI integration, persistence, or run recovery;
+- raw JSON parsing or strict validation of model-generated response text into `AgentDecision`;
+- an agent loop, prompt policy, tool dispatch, or registry integration;
+- CLI integration, UI, persistence, or run recovery;
+- model loading, downloading, or automatic model management;
 - any changes to M1–M4 schemas, pipeline, CLI, output formats, or supported protocols.
 
 Those require separate, reviewed tasks. No cloud APIs, telemetry, remote inference, feed downloads, active scanning, exploitation, credential testing, target probing, arbitrary shell execution, or generated Python execution are permitted.
