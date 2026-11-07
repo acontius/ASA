@@ -1,0 +1,36 @@
+{
+  "input": "Data/PartOfMe.json",
+  "sample": "benchmarks/cpe/data/sample.jsonl",
+  "gold": "benchmarks/cpe/data/gold.jsonl",
+  "dictionary_db": "out/cpe-dictionary.sqlite",
+  "dictionary_chunks": "local-data/nvd-cpe-dictionary/nvdcpe-2.0-chunks",
+  "sample_size": 40,
+  "seed": 20261107,
+  "server_url": "http://127.0.0.1:8080/v1/chat/completions",
+  "context_size": 4096,
+  "max_output_tokens": 512,
+  "temperature": 0,
+  "llama_cpp_runtime": "0.8.0-dev (build 12019, commit 1052f7e1d)",
+  "runtime_hardware_observation": "CPU inference available; CUDA reports no usable device in this environment",
+  "max_model_calls": 2,
+  "max_tool_calls": 1,
+  "models": {
+    "llama": "Meta-Llama-3.1-8B-Instruct",
+    "qwen": "Qwen3-8B",
+    "deepseek": "DeepSeek-R1-Distill-Qwen-7B",
+    "falcon": "Falcon3-7B-Instruct",
+    "mistral": "Mistral-7B-Instruct-v0.3",
+    "gemma": "gemma-2-9b-it"
+  },
+  "cached_models": {
+    "qwen": {
+      "repository": "Qwen/Qwen3-8B-GGUF",
+      "filename": "Qwen3-8B-Q4_K_M.gguf",
+      "cache_path": "/home/acontius/.cache/huggingface/hub/models--Qwen--Qwen3-8B-GGUF/snapshots/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf",
+      "size_bytes": 5027783488,
+      "quantization": "Q4_K_M",
+      "llama_cpp_version": null,
+      "verified_usable": false
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "scored_records": 0,
+  "sample_records": 40,
+  "coverage": null,
+  "exact_cpe_accuracy": null,
+  "hallucinated_cpe_rate": null,
+  "abstention_rate": null,
+  "false_positive_rate": null,
+  "invalid_json_rate": null,
+  "schema_validity_rate": null,
+  "product_name_metrics": {
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "vendor_metrics": {
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "version_metrics": {
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "update_metrics": {
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "part_metrics": {
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "component_micro": {
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "component_macro_f1": null,
+  "gold_label_errors": [],
+  "method": "deterministic",
+  "model": "N/A",
+  "records": 40,
+  "total_runtime_seconds": 0.5557338220005477,
+  "throughput_records_per_second": 71.9769040797387,
+  "latency_mean": 0.0005917597879185147,
+  "latency_stdev": 0.0008256157706946267,
+  "latency_p50": 0.0002485410004737787,
+  "latency_p95": 0.0017321729992545443,
+  "peak_rss_kb": 31296,
+  "model_calls": 0,
+  "tool_calls": 0,
+  "python": "3.14.8"
+}
