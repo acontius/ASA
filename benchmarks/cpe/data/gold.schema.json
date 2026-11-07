@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ASA CPE benchmark gold record",
+  "type": "object",
+  "required": ["record_id", "expected_product", "expected_vendor", "expected_version", "expected_update", "expected_part", "expected_cpe23", "acceptable_cpes", "abstain_expected", "evidence_paths", "adjudication_notes", "scoring_status"],
+  "properties": {
+    "record_id": {"type": "string", "minLength": 1},
+    "expected_product": {"type": ["string", "null"]},
+    "expected_vendor": {"type": ["string", "null"]},
+    "expected_version": {"type": ["string", "null"]},
+    "expected_update": {"type": ["string", "null"]},
+    "expected_part": {"type": ["string", "null"]},
+    "expected_cpe23": {"type": ["string", "null"]},
+    "acceptable_cpes": {"type": "array", "items": {"type": "string"}},
+    "abstain_expected": {"type": ["boolean", "null"]},
+    "evidence_paths": {"type": "array", "items": {"type": "string"}},
+    "adjudication_notes": {"type": "string"},
+    "scoring_status": {"enum": ["reviewed", "ambiguous", "excluded", "unreviewed"]}
+  },
+  "additionalProperties": false
+}

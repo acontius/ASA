@@ -1,0 +1,1288 @@
+{
+  "gold_label_errors": [],
+  "comparisons": [
+    {
+      "Method": "deterministic",
+      "Model": "N/A",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": 0.0002485410004737787,
+      "Latency p95": 0.0017321729992545443,
+      "Generation tok/s": null,
+      "Peak RAM": 30.5625,
+      "Peak VRAM": null,
+      "per_protocol": {
+        "ftp": {
+          "scored_records": 0,
+          "sample_records": 12,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "http": {
+          "scored_records": 0,
+          "sample_records": 14,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "mongodb": {
+          "scored_records": 0,
+          "sample_records": 1,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "ssh": {
+          "scored_records": 0,
+          "sample_records": 13,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        }
+      },
+      "performance": {
+        "latency_mean_seconds": 0.0005917597879185147,
+        "latency_stdev_seconds": 0.0008256157706946267,
+        "total_runtime_seconds": 0.5557338220005477,
+        "throughput_records_per_second": 71.9769040797387,
+        "agent_total_seconds_mean": 0.0,
+        "agent_model_calls": 0,
+        "agent_tool_calls": 0,
+        "peak_process_rss_kb": 31296
+      },
+      "failures": [
+        {
+          "record_id": "rec-f41f59dafd42f9d9",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        },
+        {
+          "record_id": "rec-0b948f330ca6b6cc",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        },
+        {
+          "record_id": "rec-6c88c883a6276097",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        },
+        {
+          "record_id": "rec-b294b17f22376529",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        },
+        {
+          "record_id": "rec-5e3a9683878806a8",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        },
+        {
+          "record_id": "rec-a2acbe7c9714a618",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        },
+        {
+          "record_id": "rec-83f290cce9b34bd7",
+          "status": "error",
+          "error": "NameError",
+          "invalid_reason": null
+        }
+      ]
+    },
+    {
+      "Method": "llm",
+      "Model": "llama",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "agent",
+      "Model": "llama",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "llm",
+      "Model": "qwen",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {
+        "ftp": {
+          "scored_records": 0,
+          "sample_records": 12,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "http": {
+          "scored_records": 0,
+          "sample_records": 14,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "mongodb": {
+          "scored_records": 0,
+          "sample_records": 1,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "ssh": {
+          "scored_records": 0,
+          "sample_records": 13,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        }
+      },
+      "performance": {
+        "latency_mean_seconds": null,
+        "latency_stdev_seconds": null,
+        "total_runtime_seconds": 0.7308149519994913,
+        "throughput_records_per_second": 54.73341766005335,
+        "agent_total_seconds_mean": 0.0,
+        "agent_model_calls": 40,
+        "agent_tool_calls": 0,
+        "peak_process_rss_kb": 58172
+      },
+      "failures": [
+        {
+          "record_id": "rec-f41f59dafd42f9d9",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-3aeb54761649d5ab",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-052b0512c30879ef",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0c5c7ab7b543f099",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-f7f151d7471da5a3",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0b948f330ca6b6cc",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b1a47698bed4c976",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-86104b1b10d0169a",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-7ad1a5c332e81029",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0c737d80897bbde7",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-2d7bfda455c9f23c",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-47c10120755c1866",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6c88c883a6276097",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b544c4988b294e52",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-c95e38d456142c10",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-42c015af7d868ef8",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-f5b321bc5b335262",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6634ea636122201f",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-42554e84021531c4",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b294b17f22376529",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-65f76ab7a9a68676",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-65a7ac3a9c754029",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-5e3a9683878806a8",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-73ac8e24023ed625",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-97a878e7f7d3be64",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-9525f94125eaf400",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0505d32883761683",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-8ab56bb327772962",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-a2acbe7c9714a618",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-548066ac1883bc25",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-695d730eb9922426",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-bdc72e83e4e0673f",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6d9616e35770a18e",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-8f8a04fa3ada5d81",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-ecd10473868bee2d",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-a42e3f1e9a757b7a",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-83f290cce9b34bd7",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b5744f84db60cb7d",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-8829a0f90dc045c3",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6f04dfd05d891421",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        }
+      ]
+    },
+    {
+      "Method": "agent",
+      "Model": "qwen",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {
+        "ftp": {
+          "scored_records": 0,
+          "sample_records": 12,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "http": {
+          "scored_records": 0,
+          "sample_records": 14,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "mongodb": {
+          "scored_records": 0,
+          "sample_records": 1,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        },
+        "ssh": {
+          "scored_records": 0,
+          "sample_records": 13,
+          "coverage": null,
+          "exact_cpe_accuracy": null,
+          "hallucinated_cpe_rate": null,
+          "abstention_rate": null,
+          "false_positive_rate": null,
+          "invalid_json_rate": null,
+          "schema_validity_rate": null,
+          "product_name_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "vendor_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "version_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "update_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "part_metrics": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_micro": {
+            "precision": null,
+            "recall": null,
+            "f1": null
+          },
+          "component_macro_f1": null
+        }
+      },
+      "performance": {
+        "latency_mean_seconds": null,
+        "latency_stdev_seconds": null,
+        "total_runtime_seconds": 0.8123913609997544,
+        "throughput_records_per_second": 49.237352734493314,
+        "agent_total_seconds_mean": 0.004099024075003399,
+        "agent_model_calls": 40,
+        "agent_tool_calls": 0,
+        "peak_process_rss_kb": 58816
+      },
+      "failures": [
+        {
+          "record_id": "rec-f41f59dafd42f9d9",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-3aeb54761649d5ab",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-052b0512c30879ef",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0c5c7ab7b543f099",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-f7f151d7471da5a3",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0b948f330ca6b6cc",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b1a47698bed4c976",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-86104b1b10d0169a",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-7ad1a5c332e81029",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0c737d80897bbde7",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-2d7bfda455c9f23c",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-47c10120755c1866",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6c88c883a6276097",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b544c4988b294e52",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-c95e38d456142c10",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-42c015af7d868ef8",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-f5b321bc5b335262",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6634ea636122201f",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-42554e84021531c4",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b294b17f22376529",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-65f76ab7a9a68676",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-65a7ac3a9c754029",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-5e3a9683878806a8",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-73ac8e24023ed625",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-97a878e7f7d3be64",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-9525f94125eaf400",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-0505d32883761683",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-8ab56bb327772962",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-a2acbe7c9714a618",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-548066ac1883bc25",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-695d730eb9922426",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-bdc72e83e4e0673f",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6d9616e35770a18e",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-8f8a04fa3ada5d81",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-ecd10473868bee2d",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-a42e3f1e9a757b7a",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-83f290cce9b34bd7",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-b5744f84db60cb7d",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-8829a0f90dc045c3",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        },
+        {
+          "record_id": "rec-6f04dfd05d891421",
+          "status": "error",
+          "error": "URLError",
+          "invalid_reason": "invalid_json"
+        }
+      ]
+    },
+    {
+      "Method": "llm",
+      "Model": "deepseek",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "agent",
+      "Model": "deepseek",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "llm",
+      "Model": "falcon",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "agent",
+      "Model": "falcon",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "llm",
+      "Model": "mistral",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "agent",
+      "Model": "mistral",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "llm",
+      "Model": "gemma",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    },
+    {
+      "Method": "agent",
+      "Model": "gemma",
+      "Exact CPE Accuracy": null,
+      "Product F1": null,
+      "Version F1": null,
+      "Component F1": null,
+      "Hallucination Rate": null,
+      "Coverage": null,
+      "Latency p50": null,
+      "Latency p95": null,
+      "Generation tok/s": null,
+      "Peak RAM": null,
+      "Peak VRAM": null,
+      "per_protocol": {},
+      "failures": []
+    }
+  ]
+}
