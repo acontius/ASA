@@ -1,0 +1,280 @@
+"""Small, bounded client for the official NVD CPE API 2.0 only."""
+from __future__ import annotations
+
+import json
+import os
+import random
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from pathlib import Path
+from typing import Any, Callable
+from uuid import UUID
+
+from benchmarks.cpe.src.cpe23 import Cpe23Error, parse_cpe23
+
+ENDPOINT = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
+TRANSIENT_STATUSES = {429, 500, 502, 503, 504}
+
+
+class _NvdRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlsplit(newurl)
+        if parsed.scheme != "https" or parsed.hostname != "services.nvd.nist.gov" or parsed.path.rstrip("/") != "/rest/json/cpes/2.0":
+            raise NvdApiError("network_error", "NVD endpoint attempted a redirect outside the official CPE API")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+class NvdApiError(RuntimeError):
+    def __init__(self, category: str, message: str, *, status: int | None = None, retries: int = 0):
+        super().__init__(message)
+        self.category, self.status, self.retries = category, status, retries
+
+
+class NvdBudgetExceeded(NvdApiError):
+    def __init__(self): super().__init__("request_budget_exceeded", "NVD request budget exhausted")
+
+
+@dataclass
+class RequestBudget:
+    limit: int
+    used: int = 0
+
+
+@dataclass
+class SearchResult:
+    products: list[dict[str, Any]]
+    parameters: dict[str, str]
+    total_results: int
+    pages_fetched: int
+    requests_made: int
+    pagination_complete: bool
+    timestamp: str
+    format: str
+    version: str
+    retry_count: int
+    http_status: int
+    cache_hit: bool = False
+    truncated_reason: str | None = None
+
+
+@dataclass
+class _Page:
+    body: dict[str, Any]
+    status: int
+    retries: int
+
+
+def load_api_key(env: dict[str, str] | None = None, dotenv_path: str | Path = ".env") -> str | None:
+    """Read NVD_API_KEY from environment, then a single-key local .env file."""
+    environ = os.environ if env is None else env
+    value = environ.get("NVD_API_KEY")
+    if value:
+        return value.strip() or None
+    path = Path(dotenv_path)
+    if not path.is_file(): return None
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line: continue
+        name, value = line.split("=", 1)
+        if name.strip() == "NVD_API_KEY":
+            value = value.strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'": value = value[1:-1]
+            return value or None
+    return None
+
+
+def _validate_endpoint(endpoint: str) -> str:
+    parsed = urllib.parse.urlsplit(endpoint)
+    if parsed.scheme != "https" or parsed.hostname != "services.nvd.nist.gov" or parsed.path.rstrip("/") != "/rest/json/cpes/2.0" or parsed.query or parsed.username or parsed.password:
+        raise ValueError("NVD endpoint must be the official HTTPS CPE API 2.0 endpoint")
+    return ENDPOINT
+
+
+class NvdCpeClient:
+    def __init__(self, *, endpoint: str = ENDPOINT, api_key: str | None = None, timeout: float = 30.0,
+                 min_interval: float | None = None, max_retries: int = 3, backoff_base: float = 1.0,
+                 backoff_cap: float = 30.0, results_per_page: int = 500, max_pages: int = 2,
+                 opener: Callable[..., Any] | None = None, clock: Callable[[], float] = time.monotonic,
+                 sleeper: Callable[[float], None] = time.sleep, jitter: Callable[[], float] = random.random):
+        self.endpoint = _validate_endpoint(endpoint)
+        self.api_key = api_key
+        self.timeout = float(timeout)
+        self.min_interval = float(min_interval if min_interval is not None else (0.7 if api_key else 6.1))
+        self.max_retries, self.backoff_base, self.backoff_cap = int(max_retries), float(backoff_base), float(backoff_cap)
+        self.results_per_page, self.max_pages = int(results_per_page), int(max_pages)
+        if self.timeout <= 0 or self.min_interval < 0 or self.max_retries < 0 or not 1 <= self.results_per_page <= 10000 or self.max_pages < 1:
+            raise ValueError("invalid NVD client limits")
+        self._opener = opener or urllib.request.build_opener(_NvdRedirectHandler()).open
+        self._clock, self._sleep, self._jitter = clock, sleeper, jitter
+        self._last_request: float | None = None
+        self.request_count = 0
+        self.retry_count = 0
+        self.cache_hits = 0
+        self._cache: dict[tuple[tuple[str, str], ...], SearchResult] = {}
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any], *, dotenv_path: str | Path = ".env", **kwargs):
+        return cls(endpoint=config.get("nvd_endpoint", ENDPOINT), api_key=load_api_key(dotenv_path=dotenv_path),
+                   timeout=config.get("nvd_timeout_seconds", 30),
+                   min_interval=config.get("nvd_min_interval_seconds"),
+                   max_retries=config.get("nvd_max_retries", 3),
+                   backoff_base=config.get("nvd_backoff_base_seconds", 1),
+                   backoff_cap=config.get("nvd_backoff_cap_seconds", 30),
+                   results_per_page=config.get("nvd_results_per_page", 500),
+                   max_pages=config.get("nvd_max_pages", 2), **kwargs)
+
+    def search(self, parameters: dict[str, str], *, budget: RequestBudget | None = None) -> SearchResult:
+        allowed = {"cpeMatchString", "keywordSearch", "keywordExactMatch", "cpeNameId", "matchCriteriaId"}
+        if not parameters or set(parameters) - allowed:
+            raise ValueError("unsupported NVD CPE API parameter")
+        if sum(key in parameters for key in ("cpeMatchString", "keywordSearch", "cpeNameId", "matchCriteriaId")) != 1:
+            raise ValueError("provide exactly one NVD CPE search parameter")
+        if "keywordExactMatch" in parameters and "keywordSearch" not in parameters:
+            raise ValueError("keywordExactMatch requires keywordSearch")
+        cache_key = tuple(sorted((str(k), str(v)) for k, v in parameters.items()))
+        if cache_key in self._cache:
+            self.cache_hits += 1
+            cached = self._cache[cache_key]
+            return SearchResult(**{**cached.__dict__, "products": list(cached.products), "cache_hit": True, "requests_made": 0})
+
+        products: list[dict[str, Any]] = []
+        total: int | None = None
+        timestamp = ""
+        pages = requests = retries = 0
+        status = 200
+        truncated = None
+        while pages < self.max_pages:
+            start = len(products)
+            query = {**parameters, "resultsPerPage": str(self.results_per_page), "startIndex": str(start)}
+            page = self._request(query, budget)
+            pages += 1; requests += 1 + page.retries; retries += page.retries; status = page.status
+            body = page.body
+            if total is None: total = body["totalResults"]
+            elif body["totalResults"] != total:
+                raise NvdApiError("invalid_response", "NVD totalResults changed during pagination", status=status, retries=retries)
+            if body["startIndex"] != start:
+                raise NvdApiError("invalid_response", "NVD startIndex did not match requested offset", status=status, retries=retries)
+            if body["resultsPerPage"] != len(body["products"]):
+                raise NvdApiError("invalid_response", "NVD resultsPerPage does not match products array", status=status, retries=retries)
+            if body["resultsPerPage"] > self.results_per_page:
+                raise NvdApiError("invalid_response", "NVD returned more records than requested", status=status, retries=retries)
+            if not timestamp: timestamp = body["timestamp"]
+            products.extend(body["products"])
+            if len(products) >= total: break
+            if budget is not None and budget.used >= budget.limit:
+                truncated = "request_budget_exhausted"; break
+            if pages >= self.max_pages:
+                truncated = "max_pages_reached"; break
+            if not body["products"]:
+                raise NvdApiError("invalid_response", "NVD returned an empty page before totalResults", status=status, retries=retries)
+        complete = total is not None and len(products) >= total
+        result = SearchResult(products, dict(parameters), int(total or 0), pages, requests, complete, timestamp,
+                              "NVD_CPE", "2.0", retries, status, False, truncated)
+        self._cache[cache_key] = result
+        return result
+
+    def _request(self, parameters: dict[str, str], budget: RequestBudget | None) -> _Page:
+        retries = 0
+        while True:
+            if budget is not None and budget.used >= budget.limit: raise NvdBudgetExceeded()
+            if self._last_request is not None:
+                remaining = self.min_interval - (self._clock() - self._last_request)
+                if remaining > 0: self._sleep(remaining)
+            url = self.endpoint + "?" + urllib.parse.urlencode(parameters)
+            headers = {"Accept": "application/json", "User-Agent": "ASA-CPE-Benchmark/1.0"}
+            if self.api_key: headers["apiKey"] = self.api_key
+            request = urllib.request.Request(url, headers=headers, method="GET")
+            self._last_request = self._clock(); self.request_count += 1
+            if budget is not None: budget.used += 1
+            try:
+                with self._opener(request, timeout=self.timeout) as response:
+                    status = response.getcode()
+                    payload = response.read()
+                if status < 200 or status >= 300:
+                    raise NvdApiError("http_error", f"NVD returned HTTP {status}", status=status, retries=retries)
+                try: body = json.loads(payload)
+                except (json.JSONDecodeError, UnicodeDecodeError, TypeError) as exc:
+                    raise NvdApiError("invalid_response", "NVD returned malformed JSON", status=status, retries=retries) from exc
+                _validate_page(body)
+                self.retry_count += retries
+                return _Page(body, status, retries)
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+                if status not in TRANSIENT_STATUSES:
+                    exc.close()
+                    raise NvdApiError("http_error", f"NVD returned HTTP {status}", status=status, retries=retries) from None
+                retry_after = _retry_after(exc.headers.get("Retry-After") if exc.headers else None)
+                exc.close()
+                if retries >= self.max_retries: raise NvdApiError("http_error", f"NVD transient HTTP {status}; retries exhausted", status=status, retries=retries) from None
+                delay = retry_after if retry_after is not None else self._backoff(retries)
+                retries += 1; self.retry_count += 1; self._sleep(delay)
+            except NvdApiError:
+                raise
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                if retries >= self.max_retries:
+                    raise NvdApiError("network_error", f"NVD network failure ({type(exc).__name__}); retries exhausted", retries=retries) from None
+                delay = self._backoff(retries); retries += 1; self.retry_count += 1; self._sleep(delay)
+
+    def _backoff(self, retry_number: int) -> float:
+        return min(self.backoff_cap, self.backoff_base * (2 ** retry_number)) + self._jitter() * 0.25
+
+
+def _retry_after(value: str | None) -> float | None:
+    if not value: return None
+    try: return max(0.0, float(value))
+    except ValueError: pass
+    try:
+        at = parsedate_to_datetime(value)
+        if at.tzinfo is None: at = at.replace(tzinfo=timezone.utc)
+        return max(0.0, (at - datetime.now(timezone.utc)).total_seconds())
+    except (TypeError, ValueError, OverflowError): return None
+
+
+def _validate_page(body: Any) -> None:
+    if not isinstance(body, dict): raise NvdApiError("invalid_response", "NVD response must be a JSON object")
+    required = {"resultsPerPage", "startIndex", "totalResults", "format", "version", "timestamp", "products"}
+    if not required.issubset(body): raise NvdApiError("invalid_response", "NVD response is missing required fields")
+    if body["format"] != "NVD_CPE" or body["version"] != "2.0":
+        raise NvdApiError("invalid_response", "NVD response format/version is not NVD_CPE 2.0")
+    for key in ("resultsPerPage", "startIndex", "totalResults"):
+        if not isinstance(body[key], int) or isinstance(body[key], bool) or body[key] < 0:
+            raise NvdApiError("invalid_response", f"NVD {key} is invalid")
+    if not isinstance(body["timestamp"], str) or not body["timestamp"] or not isinstance(body["products"], list):
+        raise NvdApiError("invalid_response", "NVD timestamp/products have invalid types")
+    for item in body["products"]: _validate_product(item)
+
+
+def _validate_product(item: Any) -> None:
+    if not isinstance(item, dict) or not isinstance(item.get("cpe"), dict):
+        raise NvdApiError("invalid_response", "NVD products entry is missing its cpe object")
+    cpe = item["cpe"]
+    name, uid, deprecated = cpe.get("cpeName"), cpe.get("cpeNameId"), cpe.get("deprecated")
+    if not isinstance(name, str) or not isinstance(uid, str) or not isinstance(deprecated, bool):
+        raise NvdApiError("invalid_response", "NVD CPE entry has invalid cpeName/cpeNameId/deprecated fields")
+    try: parse_cpe23(name); UUID(uid)
+    except (Cpe23Error, ValueError, AttributeError) as exc:
+        raise NvdApiError("invalid_response", "NVD CPE entry has an invalid CPE name or UUID") from exc
+    for key in ("deprecatedBy", "deprecates"):
+        refs = cpe.get(key, [])
+        if not isinstance(refs, list): raise NvdApiError("invalid_response", f"NVD {key} must be an array")
+        for ref in refs:
+            if not isinstance(ref, dict) or not isinstance(ref.get("cpeName"), str) or not isinstance(ref.get("cpeNameId"), str):
+                raise NvdApiError("invalid_response", f"NVD {key} entry is malformed")
+            try: parse_cpe23(ref["cpeName"]); UUID(ref["cpeNameId"])
+            except (Cpe23Error, ValueError, AttributeError) as exc: raise NvdApiError("invalid_response", f"NVD {key} entry is malformed") from exc
+    for key in ("titles", "refs"):
+        value = cpe.get(key, [])
+        if not isinstance(value, list): raise NvdApiError("invalid_response", f"NVD {key} must be an array")
+        if key == "titles":
+            if any(not isinstance(row, dict) or not isinstance(row.get("title"), str) or not isinstance(row.get("lang"), str) for row in value):
+                raise NvdApiError("invalid_response", "NVD title metadata is malformed")
+        elif any(not isinstance(row, dict) or not isinstance(row.get("ref"), str) for row in value):
+            raise NvdApiError("invalid_response", "NVD reference metadata is malformed")
+    for key in ("created", "lastModified"):
+        if key in cpe and not isinstance(cpe[key], str):
+            raise NvdApiError("invalid_response", f"NVD {key} timestamp is malformed")
