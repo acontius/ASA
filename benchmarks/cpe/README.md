@@ -8,6 +8,10 @@ This benchmark is isolated from the production CLI and consumes ASA's existing M
 
 Gold record fields: `record_id`, `expected_product`, `expected_vendor`, `expected_version`, `expected_update`, `expected_part`, `expected_cpe23`, `acceptable_cpes`, `abstain_expected`, `evidence_paths`, `adjudication_notes`, and `scoring_status` (`unreviewed`, `reviewed`, `ambiguous`, or `excluded`). CPE strings are checked with ASA's CPE 2.3 parser. Keep record identifiers and labels out of model prompts.
 
+All Gold record keys in `gold.schema.json` are required, but identity values may be `null`. A CPE identity requires a concrete `expected_product` when an expected or acceptable CPE is supplied. Vendor, version, update, and part are optional when null; when specified, they must match. A Gold value of `*` is unconstrained. A concrete expected value does not match a wildcard CPE component; `-` matches only the CPE not-applicable value. Product/vendor normalization uses the resolver's case-folding and separator rules; version/update are case-folded and trimmed; part is case-folded and trimmed.
+
+Result JSONL keeps extraction identities in `extraction_prediction(s)` and end-to-end results in `final_cpe_resolutions`. Deterministic rows preserve one resolution per M2 candidate and do not aggregate multi-candidate identities into a single prediction. Direct ignores model-proposed CPEs and sends non-abstaining extracted identity through M3. Agent rows preserve the final CPE proposals. Aggregate reports label extraction metrics and end-to-end CPE metrics separately. Records with more than one candidate may yield false positives against single-identity Gold; the current Gold schema cannot express multiple expected software identities per record.
+
 ## Prepare and run
 
 From the repository root:

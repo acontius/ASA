@@ -1,7 +1,11 @@
 import json, unittest
-from benchmarks.cpe.src.llm_direct import FIELDS, validate_output
+from benchmarks.cpe.src.llm_direct import FIELDS, SYSTEM, validate_output
 
 class OutputTests(unittest.TestCase):
+    def test_direct_prompt_is_extraction_only(self):
+        self.assertIn("cpe_candidates must be an empty list", SYSTEM)
+        self.assertIn("Do not propose or invent a CPE", SYSTEM)
+
     def valid(self): return {"product_name":"OpenSSH","vendor":None,"version":"9.6p1","update":None,"part":None,"cpe_candidates":[],"evidence_paths":["t22.ssh.result.server_id.software"],"abstain":True,"explanation":"evidence"}
     def test_invalid_json(self): self.assertEqual(validate_output("not json")[1],"invalid_json")
     def test_missing_local_server_is_reported(self):

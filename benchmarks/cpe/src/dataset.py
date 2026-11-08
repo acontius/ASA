@@ -6,6 +6,7 @@ import json
 import random
 from pathlib import Path
 from typing import Any
+from benchmarks.cpe.src.identity import compare_cpe_identity, gold_identity
 
 PROTOCOLS = ("ssh", "http", "ftp", "mongodb")
 GOLD_REQUIRED = {"record_id", "expected_product", "expected_vendor", "expected_version", "expected_update", "expected_part", "expected_cpe23", "acceptable_cpes", "abstain_expected", "evidence_paths", "adjudication_notes", "scoring_status"}
@@ -106,7 +107,10 @@ def validate_gold(gold: dict[str, Any], dictionary=None) -> list[str]:
         errors.append("evidence_paths must be an array of strings")
     if not isinstance(gold.get("record_id"), str) or not gold.get("record_id"):
         errors.append("record_id must be a non-empty string")
-    for name in [gold.get("expected_cpe23"), *(gold.get("acceptable_cpes") or [])]:
+    cpe_names = [name for name in [gold.get("expected_cpe23"), *(gold.get("acceptable_cpes") or [])] if name]
+    if cpe_names and (gold.get("expected_product") is None or not str(gold.get("expected_product")).strip() or gold.get("expected_product") == "*"):
+        errors.append("expected_product is required when a CPE identity is supplied")
+    for name in cpe_names:
         if name:
             try:
                 from app.cpe.parser import parse_cpe23
@@ -116,6 +120,11 @@ def validate_gold(gold: dict[str, Any], dictionary=None) -> list[str]:
                 continue
             if dictionary is not None and not dictionary.contains_cpe(name):
                 errors.append("CPE is absent from the local dictionary")
+            comparison = compare_cpe_identity(name, gold_identity(gold))
+            for field, matched in comparison["fields"].items():
+                if matched is False:
+                    label = "product" if field == "product_name" else field
+                    errors.append(f"CPE {label} does not match expected identity")
     return errors
 
 

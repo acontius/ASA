@@ -23,4 +23,18 @@ class DatasetTests(unittest.TestCase):
         gold["expected_cpe23"]="cpe:bad"
         self.assertIn("invalid CPE 2.3", " ".join(validate_gold(gold)))
 
+    def test_gold_cpe_membership_does_not_override_identity_mismatch(self):
+        class Dictionary:
+            def contains_cpe(self, name): return True
+        gold={"record_id":"r","expected_product":"ssh-client","expected_vendor":"openbsd","expected_version":"9.6p1","expected_update":None,"expected_part":"a","expected_cpe23":"cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*","acceptable_cpes":[],"abstain_expected":False,"evidence_paths":[],"adjudication_notes":"reviewed","scoring_status":"reviewed"}
+        self.assertIn("CPE product does not match expected identity", " ".join(validate_gold(gold, Dictionary())))
+
+    def test_gold_identity_uses_runtime_normalization(self):
+        gold={"record_id":"r","expected_product":"Open_SSH","expected_vendor":"OPENBSD","expected_version":"9.6P1","expected_update":"-","expected_part":"A","expected_cpe23":"cpe:2.3:a:openbsd:openssh:9.6p1:-:*:*:*:*:*:*","acceptable_cpes":[],"abstain_expected":False,"evidence_paths":[],"adjudication_notes":"reviewed","scoring_status":"reviewed"}
+        self.assertEqual(validate_gold(gold), [])
+
+    def test_gold_requires_product_to_validate_cpe_identity(self):
+        gold={"record_id":"r","expected_product":None,"expected_vendor":None,"expected_version":None,"expected_update":None,"expected_part":None,"expected_cpe23":"cpe:2.3:a:v:x:1:*:*:*:*:*:*:*","acceptable_cpes":[],"abstain_expected":False,"evidence_paths":[],"adjudication_notes":"reviewed","scoring_status":"reviewed"}
+        self.assertIn("expected_product is required", " ".join(validate_gold(gold)))
+
 if __name__=="__main__": unittest.main()
