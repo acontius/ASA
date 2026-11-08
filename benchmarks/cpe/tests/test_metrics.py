@@ -22,6 +22,12 @@ class MetricsTests(unittest.TestCase):
         row={"record_id":"r","prediction":{"product_name":"OpenSSH","cpe_candidates":[cpe],"abstain":False},"final_cpe_resolutions":[],"dictionary_cpes":[cpe]}
         self.assertEqual(evaluate([row],gold)["exact_cpe_accuracy"],0)
 
+    def test_legacy_direct_row_without_final_resolution_ignores_model_proposed_cpe(self):
+        cpe="cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*"
+        gold={"r":{"scoring_status":"reviewed","expected_product":"OpenSSH","expected_cpe23":cpe,"acceptable_cpes":[],"abstain_expected":False}}
+        row={"record_id":"r","method":"llm","prediction":{"product_name":"OpenSSH","cpe_candidates":[cpe]}}
+        self.assertEqual(evaluate([row],gold)["exact_cpe_accuracy"],0)
+
     def test_explicit_abstention_is_separate_from_missing_prediction(self):
         gold={"a":{"scoring_status":"reviewed","expected_product":None,"abstain_expected":True}}
         abstain={"record_id":"a","prediction":{"abstain":True},"extraction_predictions":[]}

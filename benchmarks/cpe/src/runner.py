@@ -25,6 +25,7 @@ from benchmarks.cpe.src.metrics import evaluate
 from app.cpe.parser import parse_cpe23
 from app.cpe.resolver import resolve_candidate
 from benchmarks.cpe.src.identity import compare_cpe_identity
+from benchmarks.cpe.src.gold import canonical_source_hash
 
 BASE = ROOT / "benchmarks/cpe"
 
@@ -102,10 +103,21 @@ def _resolve_direct_identity(parsed: dict | None, record_id: str, db_path: Path)
 def config(): return json.loads((BASE / "config/benchmark.json").read_text())
 
 
-def run(method: str, model: str | None = None, server_url: str | None = None):
+def run(method: str, model: str | None = None, server_url: str | None = None, *, records: list[dict] | None = None, output_path: str | Path | None = None, progress_callback=None):
     cfg = config(); sample_path = ROOT / cfg["sample"]
-    if not sample_path.exists(): raise SystemExit("sample missing; run --prepare")
-    rows = list(iter_jsonl(sample_path)); db_path = ROOT / cfg["dictionary_db"]
+    results_dir = BASE / "results"
+    if output_path is not None:
+        requested_output = Path(output_path)
+        if requested_output.resolve().parent != results_dir.resolve():
+            raise ValueError("custom benchmark outputs must be directly inside benchmarks/cpe/results")
+        if requested_output.exists():
+            raise FileExistsError(requested_output)
+    if records is None:
+        if not sample_path.exists(): raise SystemExit("sample missing; run --prepare")
+        rows = list(iter_jsonl(sample_path))
+    else:
+        rows = list(enumerate(records, 1))
+    db_path = ROOT / cfg["dictionary_db"]
     lookup = ReadOnlyCpeLookup(str(db_path), str(ROOT / cfg["dictionary_chunks"]), cfg["max_tool_calls"])
     db = None
     if method == "deterministic" and db_path.exists():
@@ -119,7 +131,7 @@ def run(method: str, model: str | None = None, server_url: str | None = None):
     for index, (_, sample_row) in enumerate(rows, 1):
         lookup.calls = 0  # budget is per input record
         recid, raw = sample_row["record_id"], sample_row["raw"]
-        base = {"record_id": recid, "method": method, "model": model, "protocol": sample_row.get("protocol"), "timestamp": time.time(), "hardware": hardware()}
+        base = {"record_id": recid, "source_hash": canonical_source_hash(raw), "method": method, "model": model, "protocol": sample_row.get("protocol"), "timestamp": time.time(), "hardware": hardware()}
         if method == "deterministic":
             started = time.perf_counter()
             try:
@@ -159,11 +171,16 @@ def run(method: str, model: str | None = None, server_url: str | None = None):
         else: raise SystemExit(f"unknown method: {method}")
         if "dictionary_cpes" not in base: base["dictionary_cpes"] = base.get("candidate_cpes", [])
         output.append(base)
+        if progress_callback is not None:
+            progress_callback(index, len(rows), base)
     if db: db.close()
     lookup.close()
-    results_dir = BASE / "results"; results_dir.mkdir(exist_ok=True)
-    filename = f"{method}-{model or 'none'}.jsonl"
-    with (results_dir / filename).open("w", encoding="utf-8") as f:
+    results_dir.mkdir(exist_ok=True)
+    target = Path(output_path) if output_path is not None else results_dir / f"{method}-{model or 'none'}.jsonl"
+    if target.resolve().parent != results_dir.resolve():
+        raise ValueError("custom benchmark outputs must be directly inside benchmarks/cpe/results")
+    mode = "x" if output_path is not None else "w"
+    with target.open(mode, encoding="utf-8") as f:
         for row in output: f.write(serialize_result(row) + "\n")
     return output
 

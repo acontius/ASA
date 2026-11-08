@@ -26,9 +26,15 @@ def iter_jsonl(path: str | Path):
 
 def stable_id(doc: dict[str, Any], line: int) -> str:
     src = doc.get("_source", {}) if isinstance(doc, dict) else {}
-    # Hash content rather than IP/path to provide a stable, non-reversible identifier.
-    canonical = json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return "rec-" + hashlib.sha256(canonical.encode()).hexdigest()[:16]
+    if not isinstance(src, dict):
+        src = {}
+    # Keep a record's opaque benchmark ID stable when its content changes so
+    # source_hash can detect stale annotations. Prefer Elasticsearch identity;
+    # fall back to physical line position when the source has no stable key.
+    source_key = next((value for value in (src.get("id"), doc.get("_id"))
+                       if isinstance(value, (str, int)) and not isinstance(value, bool)), None)
+    identity = f"source:{source_key}" if source_key is not None else f"line:{line}"
+    return "rec-" + hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 
 
 def protocol_of(doc: dict[str, Any]) -> str:
@@ -90,6 +96,68 @@ def sample(input_path: str | Path, output_path: str | Path, size: int = 40, seed
     return selected
 
 
+def create_annotation_manifest(input_path: str | Path, output_path: str | Path, size: int = 100, seed: int = 20261108) -> dict[str, Any]:
+    """Write a reproducible annotation manifest without copying source records."""
+    from benchmarks.cpe.src.gold import canonical_source_hash
+
+    buckets: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    malformed = non_object = valid = 0
+    with Path(input_path).open("rb") as stream:
+        for line_no, raw_line in enumerate(stream, 1):
+            if not raw_line.strip():
+                continue
+            try:
+                line = raw_line.decode("utf-8")
+                document = json.loads(line)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                malformed += 1
+                continue
+            if not isinstance(document, dict):
+                non_object += 1
+                continue
+            valid += 1
+            protocol = protocol_of(document)
+            outcome = "processing_error"
+            candidate_count = 0
+            try:
+                from app.extractors import EXTRACTORS, extract_candidates
+                from app.ingestion.normalizer import normalize
+                from app.outcomes import classify
+                normalized = normalize(document, line_number=line_no, byte_offset=0)
+                candidates = extract_candidates(normalized, EXTRACTORS)
+                supported = any(block["protocol"] in EXTRACTORS for block in normalized["port_blocks"])
+                outcome = classify(normalized["record_id"], candidates, supported_block_present=supported)["outcome"]
+                candidate_count = len(candidates)
+            except Exception:
+                pass
+            count_stratum = "zero" if candidate_count == 0 else "single" if candidate_count == 1 else "multiple"
+            key = (protocol, outcome, count_stratum)
+            buckets.setdefault(key, []).append({
+                "schema_version": "2.0",
+                "record_id": stable_id(document, line_no),
+                "source_hash": canonical_source_hash(document),
+                "protocol": protocol,
+                "m2_outcome": outcome,
+                "candidate_count": candidate_count,
+                "candidate_count_stratum": count_stratum,
+            })
+    rng = random.Random(seed)
+    for values in buckets.values():
+        rng.shuffle(values)
+    selected: list[dict[str, Any]] = []
+    keys = sorted(buckets)
+    while len(selected) < max(0, size) and any(buckets.values()):
+        for key in keys:
+            if buckets[key] and len(selected) < size:
+                selected.append(buckets[key].pop())
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("w", encoding="utf-8") as output:
+        for row in selected:
+            output.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    return {"manifest": str(destination), "records": len(selected), "valid_source_records": valid, "malformed_json_rows": malformed, "non_object_rows": non_object, "seed": seed}
+
+
 def validate_gold(gold: dict[str, Any], dictionary=None) -> list[str]:
     errors = []
     missing = GOLD_REQUIRED - gold.keys()
@@ -128,17 +196,15 @@ def validate_gold(gold: dict[str, Any], dictionary=None) -> list[str]:
     return errors
 
 
-def load_reviewed_gold(path: str | Path, dictionary=None) -> tuple[dict[str, dict], list[dict]]:
-    accepted: dict[str, dict] = {}
-    rejected: list[dict] = []
-    for line_number, row in iter_jsonl(path):
-        if not isinstance(row, dict):
-            rejected.append({"line": line_number, "errors": ["gold row is not an object"]}); continue
-        if row.get("scoring_status") not in {"reviewed", "ambiguous"}:
-            continue
-        errors = validate_gold(row, dictionary)
-        if errors:
-            rejected.append({"line": line_number, "record_id": row.get("record_id"), "errors": errors})
-        else:
-            accepted[row["record_id"]] = row
+def load_reviewed_gold(path: str | Path, dictionary=None, source_documents=None) -> tuple[dict[str, dict], list[dict]]:
+    """Compatibility loader for v1 and v2; v2 mapping status is human Gold, not dictionary membership."""
+    from benchmarks.cpe.src.gold import load_gold_annotations
+    accepted, rejected = load_gold_annotations(path, source_documents)
+    if dictionary is not None:
+        for record_id, row in list(accepted.items()):
+            if row.get("_source_format") == "v1":
+                errors = validate_gold(row, dictionary)
+                if errors:
+                    rejected.append({"record_id": record_id, "errors": errors})
+                    accepted.pop(record_id)
     return accepted, rejected

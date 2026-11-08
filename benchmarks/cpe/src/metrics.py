@@ -1,134 +1,266 @@
-"""Separate extraction identity metrics from end-to-end CPE resolution metrics."""
+"""Set-based, one-to-one Gold v2 metrics with explicit legacy v1 support."""
 from __future__ import annotations
 
 from collections import Counter
+
 from benchmarks.cpe.src.identity import identity_value_matches
 
-
 IDENTITY_FIELDS = ("product_name", "vendor", "version", "update", "part")
+GOLD_FIELD = {"product_name": "expected_product", "vendor": "expected_vendor", "version": "expected_version", "update": "expected_update", "part": "expected_part"}
 
 
 def prf(tp: int, fp: int, fn: int) -> dict:
-    p = tp/(tp+fp) if tp+fp else None
-    r = tp/(tp+fn) if tp+fn else None
-    return {"precision": p, "recall": r, "f1": 2*p*r/(p+r) if p is not None and r is not None and p+r else None}
+    precision = tp / (tp + fp) if tp + fp else None
+    recall = tp / (tp + fn) if tp + fn else None
+    f1 = 2 * precision * recall / (precision + recall) if precision is not None and recall is not None and precision + recall else None
+    return {"precision": precision, "recall": recall, "f1": f1}
 
 
-def _extraction_prediction(row: dict) -> dict:
-    value = row.get("extraction_prediction", row.get("prediction")) or {}
-    return value if isinstance(value, dict) else {}
-
-
-def _extraction_predictions(row: dict) -> list[dict]:
+def _predictions(row: dict) -> list[dict]:
     values = row.get("extraction_predictions")
     if isinstance(values, list) and values:
         return [value for value in values if isinstance(value, dict)]
-    pred = _extraction_prediction(row)
-    return [pred] if pred else []
+    if isinstance(row.get("extraction_prediction"), dict):
+        return [row["extraction_prediction"]]
+    value = row.get("extraction_prediction", row.get("prediction"))
+    if value is None:
+        value = row.get("prediction")
+    return [value] if isinstance(value, dict) else []
 
 
-def _final_cpes(row: dict) -> list[str]:
-    """Read the explicit final-resolution contract, with legacy-file fallback."""
-    if "final_cpe_resolutions" in row:
-        return sorted({x["cpe23"] for x in row["final_cpe_resolutions"]
-                       if isinstance(x, dict) and isinstance(x.get("cpe23"), str)
-                       and x.get("identity_valid") is not False})
-    pred = row.get("prediction") or {}
-    return sorted(set(pred.get("cpe_candidates", []))) if isinstance(pred, dict) else []
+def _gold_identities(gold: dict) -> list[dict]:
+    if gold.get("schema_version") == "2.0":
+        return [identity for identity in gold.get("expected_identities", []) if isinstance(identity, dict)]
+    if gold.get("_source_format") == "v1" or "expected_identities" not in gold:
+        if isinstance(gold.get("expected_product"), str) and gold["expected_product"].strip():
+            return [{
+                "identity_id": gold.get("record_id", "legacy") + "-1",
+                "expected_product": gold["expected_product"],
+                "expected_vendor": gold.get("expected_vendor"),
+                "expected_version": gold.get("expected_version"),
+                "expected_update": gold.get("expected_update"),
+                "expected_part": gold.get("expected_part"),
+                "cpe_mapping_status": "mapped" if gold.get("expected_cpe23") or gold.get("acceptable_cpes") else "unreviewed",
+                "expected_cpe23": gold.get("expected_cpe23"),
+                "acceptable_cpes": gold.get("acceptable_cpes", []),
+            }]
+    return []
+
+
+def _get(identity: dict | None, field: str):
+    return identity.get(field, identity.get(GOLD_FIELD[field])) if identity else None
+
+
+def _concrete(value) -> bool:
+    return isinstance(value, str) and bool(value.strip()) and value.strip() != "*"
+
+
+def _compatible(prediction: dict, gold: dict) -> bool:
+    if identity_value_matches("product_name", _get(prediction, "product_name"), _get(gold, "product_name")) is not True:
+        return False
+    # Known vendor/version/update/part components constrain identity pairing;
+    # unknown components remain eligible and are scored as missing below.
+    for field in ("vendor", "version", "update", "part"):
+        actual, expected = _get(prediction, field), _get(gold, field)
+        if _concrete(actual) and _concrete(expected) and identity_value_matches(field, actual, expected) is not True:
+            return False
+    return True
+
+
+def _maximum_matching(predictions: list[dict], identities: list[dict]) -> dict[int, int]:
+    """Deterministic maximum-cardinality bipartite matching; no item can match twice."""
+    adjacency = {p: [g for g, identity in enumerate(identities) if _compatible(prediction, identity)] for p, prediction in enumerate(predictions)}
+    gold_to_pred: dict[int, int] = {}
+
+    def augment(pred_index: int, seen: set[int]) -> bool:
+        for gold_index in adjacency[pred_index]:
+            if gold_index in seen:
+                continue
+            seen.add(gold_index)
+            if gold_index not in gold_to_pred or augment(gold_to_pred[gold_index], seen):
+                gold_to_pred[gold_index] = pred_index
+                return True
+        return False
+
+    for pred_index in range(len(predictions)):
+        augment(pred_index, set())
+    return {pred_index: gold_index for gold_index, pred_index in gold_to_pred.items()}
+
+
+def _resolution_cpes(row: dict) -> list[str]:
+    resolutions = row.get("final_cpe_resolutions")
+    if isinstance(resolutions, list):
+        return [item["cpe23"] for item in resolutions
+                if isinstance(item, dict) and isinstance(item.get("cpe23"), str)
+                and item.get("identity_valid") is not False]
+    if row.get("method") == "llm":
+        # Historical Direct rows may lack the final-resolution field. Never
+        # reinterpret their model-proposed CPEs as M3 output.
+        return []
+    return [name for prediction in _predictions(row)
+            for name in prediction.get("cpe_candidates", [])
+            if isinstance(name, str)]
+
+
+def _scorable(gold: dict) -> bool:
+    if gold.get("schema_version") == "2.0":
+        annotation = gold.get("annotation", {})
+        return (gold.get("annotation_status") in {"reviewed", "no_software_identity"}
+                and isinstance(annotation, dict)
+                and annotation.get("adjudication_status") in {"reviewed", "adjudicated"})
+    # Legacy v1 rows retain explicit reviewed/ambiguous semantics; empty v1
+    # abstention labels are never reinterpreted as v2 confirmed negatives.
+    return gold.get("scoring_status") in {"reviewed", "ambiguous"}
 
 
 def evaluate(rows: list[dict], gold_by_id: dict[str, dict]) -> dict:
-    scored = [r for r in rows if r.get("record_id") in gold_by_id and gold_by_id[r["record_id"]].get("scoring_status") in {"reviewed", "ambiguous"}]
-    components = {field: [0, 0, 0] for field in IDENTITY_FIELDS}
+    status_counts = Counter()
+    for gold in gold_by_id.values():
+        status_counts[gold.get("annotation_status", "legacy_" + str(gold.get("scoring_status", "unknown")))] += 1
+    stale: set[str] = set()
+    for row in rows:
+        gold = gold_by_id.get(row.get("record_id"), {})
+        if gold.get("schema_version") == "2.0" and row.get("record_id"):
+            # Old result rows without hashes cannot be used against v2 labels.
+            if row.get("source_hash") != gold.get("source_hash"):
+                stale.add(row["record_id"])
+    present = {row.get("record_id") for row in rows if row.get("record_id") in gold_by_id}
+    scored = [row for row in rows if row.get("record_id") in gold_by_id and row.get("record_id") not in stale and _scorable(gold_by_id[row["record_id"]])]
+
+    field_counts = {field: [0, 0, 0] for field in IDENTITY_FIELDS}
     missing = Counter()
-    exact_records = cpe_records = invalid_cpe_identity = hallucinated = invalid = schema_invalid = abstain = false_positive = 0
-    resolution_statuses = Counter()
-    cpe_scored_records = 0
+    identity_tp = identity_fp = identity_fn = 0
+    cpe_exact = cpe_total = cpe_invalid_identity = 0
+    cpe_predictions = unmatched_cpe_predictions = 0
+    cpe_status_counts = Counter()
+    unmapped_identity_counts = Counter()
+    explicit_abstentions = no_identity_correct = 0
 
     for row in scored:
         gold = gold_by_id[row["record_id"]]
-        predictions = _extraction_predictions(row)
-        pred = _extraction_prediction(row)
-        explicit_abstain = any(bool(p.get("abstain")) for p in predictions) or (not predictions and bool(pred.get("abstain")))
-        abstain += int(explicit_abstain)
-        invalid += int(bool(row.get("invalid_json", False)))
-        schema_invalid += int(not row.get("schema_valid", True))
-        false_positive += int(bool(predictions) and not explicit_abstain and bool(gold.get("abstain_expected")))
+        predictions = _predictions(row)
+        identities = _gold_identities(gold)
+        identity_predictions = [prediction for prediction in predictions if _concrete(_get(prediction, "product_name"))]
+        explicit_abstentions += int(bool(predictions) and all(bool(pred.get("abstain")) for pred in predictions))
+        matches = _maximum_matching(identity_predictions, identities)
+        matched_gold = set(matches.values())
+        identity_tp += len(matches)
+        identity_fp += len(identity_predictions) - len(matches)
+        identity_fn += len(identities) - len(matched_gold)
+        if gold.get("annotation_status") == "no_software_identity":
+            no_identity_correct += int(not identity_predictions)
+
+        matched_by_gold = {gold_index: identity_predictions[pred_index] for pred_index, gold_index in matches.items()}
         for field in IDENTITY_FIELDS:
-            values = [p.get(field) for p in predictions]
-            concrete = [value for value in values if value is not None and not (isinstance(value, str) and (not value.strip() or value.strip() == "*"))]
-            if not concrete:
+            counts = field_counts[field]
+            for gold_index, identity in enumerate(identities):
+                expected = _get(identity, field)
+                if expected is None or expected == "*":
+                    continue
+                prediction = matched_by_gold.get(gold_index)
+                actual = _get(prediction, field)
+                if identity_value_matches(field, actual, expected) is True:
+                    counts[0] += 1
+                else:
+                    counts[2] += 1
+                    counts[1] += int(_concrete(actual))
+            for pred_index, prediction in enumerate(identity_predictions):
+                if pred_index not in matches and _concrete(_get(prediction, field)):
+                    counts[1] += 1
+            if not any(_concrete(_get(prediction, field)) for prediction in predictions):
                 missing[field] += 1
-            gold_field = "product" if field == "product_name" else field
-            expected = gold.get("expected_" + gold_field)
-            if expected is None or expected == "*":
-                # Null in Gold means this component is unknown/optional and is not scored.
+
+        for resolution in row.get("final_cpe_resolutions", []):
+            if isinstance(resolution, dict) and resolution.get("identity_valid") is False:
+                cpe_invalid_identity += 1
+        mapped_targets: list[set[str]] = []
+        for identity in identities:
+            mapping_status = identity.get("cpe_mapping_status", "unreviewed")
+            if mapping_status != "mapped":
                 continue
-            counts = components[field]
-            matching = sum(identity_value_matches(field, value, expected) is True for value in concrete)
-            if matching:
-                counts[0] += 1
-                counts[1] += len(concrete) - matching
-            else:
-                counts[2] += 1
-                counts[1] += len(concrete)
+            target = set(([identity["expected_cpe23"]] if identity.get("expected_cpe23") else []) + identity.get("acceptable_cpes", []))
+            if not target:
+                continue
+            cpe_total += 1
+            mapped_targets.append(target)
+        actual_cpes = _resolution_cpes(row)
+        cpe_predictions += len(actual_cpes)
+        # Exact CPEs use an independent one-to-one bipartite match. This keeps
+        # the end-to-end track separate from extraction identity field scores.
+        gold_to_cpe: dict[int, int] = {}
+        def assign(pred_index: int, seen: set[int]) -> bool:
+            for gold_index, target in enumerate(mapped_targets):
+                if actual_cpes[pred_index] not in target or gold_index in seen:
+                    continue
+                seen.add(gold_index)
+                if gold_index not in gold_to_cpe or assign(gold_to_cpe[gold_index], seen):
+                    gold_to_cpe[gold_index] = pred_index
+                    return True
+            return False
+        for pred_index in range(len(actual_cpes)):
+            assign(pred_index, set())
+        cpe_exact += len(gold_to_cpe)
+        unmatched_cpe_predictions += len(actual_cpes) - len(gold_to_cpe)
 
-        final_cpes = _final_cpes(row)
-        resolutions = row.get("final_cpe_resolutions", [])
-        for resolution in resolutions:
-            if isinstance(resolution, dict):
-                resolution_statuses[str(resolution.get("resolution_status", "unknown"))] += 1
-                invalid_cpe_identity += int(resolution.get("identity_valid") is False)
-        if final_cpes:
-            cpe_records += 1
-        target_cpes = set(([gold["expected_cpe23"]] if gold.get("expected_cpe23") else []) + gold.get("acceptable_cpes", []))
-        # Exact-CPE quality is scored only when Gold provides an explicit CPE target.
-        if target_cpes:
-            cpe_scored_records += 1
-            exact_records += int(bool(target_cpes & set(final_cpes)))
-        allowed = set(row.get("dictionary_cpes", []))
-        hallucinated += int(bool(set(final_cpes) - allowed)) if allowed else int(bool(final_cpes) and row.get("evaluation_track") == "end_to_end_cpe")
+    for gold in gold_by_id.values():
+        for identity in _gold_identities(gold):
+            mapping_status = identity.get("cpe_mapping_status", "unreviewed")
+            cpe_status_counts[mapping_status] += 1
+            if mapping_status != "mapped":
+                unmapped_identity_counts[mapping_status] += 1
 
-    extraction_metrics = {field + "_metrics": prf(*counts) for field, counts in components.items()}
-    total = [sum(c[i] for c in components.values()) for i in range(3)]
-    extraction_metrics.update({
-        "scored_records": len(scored),
+    field_metrics = {field + "_metrics": prf(*counts) for field, counts in field_counts.items()}
+    total_counts = [sum(counts[i] for counts in field_counts.values()) for i in range(3)]
+    no_identity_records = sum(gold_by_id[row["record_id"]].get("annotation_status") == "no_software_identity" for row in scored)
+    extraction_track = {
+        **field_metrics,
+        "identity_metrics": prf(identity_tp, identity_fp, identity_fn),
+        "gold_identities": sum(len(_gold_identities(gold_by_id[row["record_id"]])) for row in scored),
+        "predicted_identities": sum(sum(_concrete(_get(prediction, "product_name")) for prediction in _predictions(row)) for row in scored),
         "missing_identity_fields": dict(missing),
-        "abstentions": abstain,
-        "abstention_rate": abstain/len(scored) if scored else None,
-        "coverage": sum(any(bool(p.get("product_name")) and not p.get("abstain", True) for p in _extraction_predictions(r)) for r in scored)/len(scored) if scored else None,
-        "component_micro": prf(*total),
-    })
-    macro_values = [extraction_metrics[field + "_metrics"]["f1"] for field in IDENTITY_FIELDS if extraction_metrics[field + "_metrics"]["f1"] is not None]
-    extraction_metrics["component_macro_f1"] = sum(macro_values)/len(macro_values) if macro_values else None
-
+        "explicit_abstentions": explicit_abstentions,
+        "abstentions": explicit_abstentions,
+        "component_micro": prf(*total_counts),
+        "no_software_identity_records": no_identity_records,
+        "no_software_identity_correct_records": no_identity_correct,
+        "scored_records_without_identities": no_identity_records,
+    }
+    available_f1 = [value["f1"] for value in field_metrics.values() if value["f1"] is not None]
+    extraction_track["component_macro_f1"] = sum(available_f1) / len(available_f1) if available_f1 else None
     end_to_end = {
-        "scored_records_with_cpe_gold": cpe_scored_records,
-        "records_with_final_cpe": cpe_records,
-        "exact_cpe_accuracy": exact_records/cpe_scored_records if cpe_scored_records else None,
-        "hallucinated_cpe_rate": hallucinated/len(scored) if scored else None,
-        "identity_invalid_resolution_count": invalid_cpe_identity,
-        "resolution_status_counts": dict(resolution_statuses),
+        "mapped_gold_identities": cpe_total,
+        "exact_cpe_correct_identities": cpe_exact,
+        "exact_cpe_accuracy": cpe_exact / cpe_total if cpe_total else None,
+        "predicted_cpe_resolutions": cpe_predictions,
+        "unmatched_predicted_cpe_resolutions": unmatched_cpe_predictions,
+        "unmapped_identity_counts": dict(unmapped_identity_counts),
+        "cpe_mapping_status_counts": dict(cpe_status_counts),
+        "identity_invalid_resolution_count": cpe_invalid_identity,
     }
-    # Keep historical keys available to existing summaries: component scores
-    # describe extraction; exact CPE/hallucination describe end-to-end results.
-    out = {
-        "scored_records": len(scored), "sample_records": len(rows),
-        "evaluation_tracks": {"extraction_only": extraction_metrics, "end_to_end_cpe": end_to_end},
-        "coverage": extraction_metrics["coverage"],
+    scored_records = len(scored)
+    result = {
+        "scored_records": scored_records,
+        "sample_records": len(rows),
+        "gold_records_present": len(present),
+        "gold_coverage": len(present) / len(rows) if rows else None,
+        "scored_record_coverage": scored_records / len(rows) if rows else None,
+        "stale_source_records": len(stale),
+        "gold_status_counts": dict(status_counts),
+        "gold_adjudication_status_counts": dict(Counter(
+            row.get("annotation", {}).get("adjudication_status", "legacy")
+            for row in gold_by_id.values() if isinstance(row.get("annotation", {}), dict)
+        )),
+        "evaluation_tracks": {"extraction_only": extraction_track, "end_to_end_cpe": end_to_end},
         "exact_cpe_accuracy": end_to_end["exact_cpe_accuracy"],
-        "hallucinated_cpe_rate": end_to_end["hallucinated_cpe_rate"],
-        "abstention_rate": extraction_metrics["abstention_rate"],
-        "false_positive_rate": false_positive/len(scored) if scored else None,
-        "invalid_json_rate": invalid/len(scored) if scored else None,
-        "schema_validity_rate": 1-schema_invalid/len(scored) if scored else None,
+        "hallucinated_cpe_rate": None,
+        "coverage": extraction_track["identity_metrics"]["recall"],
+        "abstention_rate": explicit_abstentions / scored_records if scored_records else None,
         "missing_identity_fields": dict(missing),
-        "abstentions": abstain,
+        "abstentions": explicit_abstentions,
+        "component_micro": extraction_track["component_micro"],
+        "component_macro_f1": extraction_track["component_macro_f1"],
+        "identity_metrics": extraction_track["identity_metrics"],
+        "scored_records_without_identities": no_identity_records,
     }
-    out.update(extraction_metrics)
-    # Aliases retained for existing report callers.
-    out["scored_records"] = len(scored)
-    out["sample_records"] = len(rows)
-    out["exact_cpe_accuracy"] = end_to_end["exact_cpe_accuracy"]
-    out["hallucinated_cpe_rate"] = end_to_end["hallucinated_cpe_rate"]
-    return out
+    result.update(field_metrics)
+    return result
