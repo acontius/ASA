@@ -1,21 +1,58 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ASA CPE benchmark gold record",
+  "$id": "https://asa.local/benchmarks/cpe/gold-v2.schema.json",
+  "title": "ASA CPE benchmark Gold record v2",
   "type": "object",
-  "required": ["record_id", "expected_product", "expected_vendor", "expected_version", "expected_update", "expected_part", "expected_cpe23", "acceptable_cpes", "abstain_expected", "evidence_paths", "adjudication_notes", "scoring_status"],
+  "additionalProperties": false,
+  "required": ["schema_version", "record_id", "source_hash", "annotation_status", "expected_identities", "annotation"],
   "properties": {
+    "schema_version": {"const": "2.0"},
     "record_id": {"type": "string", "minLength": 1},
-    "expected_product": {"type": ["string", "null"]},
-    "expected_vendor": {"type": ["string", "null"]},
-    "expected_version": {"type": ["string", "null"]},
-    "expected_update": {"type": ["string", "null"]},
-    "expected_part": {"type": ["string", "null"]},
-    "expected_cpe23": {"type": ["string", "null"]},
-    "acceptable_cpes": {"type": "array", "items": {"type": "string"}},
-    "abstain_expected": {"type": ["boolean", "null"]},
-    "evidence_paths": {"type": "array", "items": {"type": "string"}},
-    "adjudication_notes": {"type": "string"},
-    "scoring_status": {"enum": ["reviewed", "ambiguous", "excluded", "unreviewed"]}
+    "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "annotation_status": {"enum": ["reviewed", "no_software_identity", "ambiguous", "insufficient_evidence", "out_of_scope", "unreviewed"]},
+    "expected_identities": {"type": "array", "items": {"$ref": "#/$defs/identity"}},
+    "annotation": {"$ref": "#/$defs/annotation"}
   },
-  "additionalProperties": false
+  "allOf": [
+    {"if": {"properties": {"annotation_status": {"const": "reviewed"}}}, "then": {"properties": {"expected_identities": {"minItems": 1}}}},
+    {"if": {"properties": {"annotation_status": {"const": "no_software_identity"}}}, "then": {"properties": {"expected_identities": {"maxItems": 0}}}},
+    {"if": {"properties": {"annotation_status": {"enum": ["insufficient_evidence", "out_of_scope"]}}}, "then": {"properties": {"expected_identities": {"maxItems": 0}}}}
+  ],
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity_id", "expected_product", "expected_vendor", "expected_version", "expected_update", "expected_part", "cpe_mapping_status", "expected_cpe23", "acceptable_cpes", "evidence_paths", "adjudication_notes"],
+      "properties": {
+        "identity_id": {"type": "string", "minLength": 1},
+        "expected_product": {"type": "string", "minLength": 1},
+        "expected_vendor": {"type": ["string", "null"]},
+        "expected_version": {"type": ["string", "null"]},
+        "expected_update": {"type": ["string", "null"]},
+        "expected_part": {"type": ["string", "null"]},
+        "cpe_mapping_status": {"enum": ["mapped", "not_in_dictionary", "ambiguous", "version_unresolved", "unreviewed"]},
+        "expected_cpe23": {"type": ["string", "null"]},
+        "acceptable_cpes": {"type": "array", "items": {"type": "string"}},
+        "evidence_paths": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "adjudication_notes": {"type": "string"}
+      },
+      "allOf": [
+        {"if": {"properties": {"cpe_mapping_status": {"const": "mapped"}}}, "then": {"properties": {"expected_cpe23": {"type": "string", "minLength": 1}}}},
+        {"if": {"properties": {"cpe_mapping_status": {"enum": ["not_in_dictionary", "version_unresolved", "unreviewed"]}}}, "then": {"properties": {"expected_cpe23": {"type": "null"}, "acceptable_cpes": {"maxItems": 0}}}},
+        {"if": {"properties": {"cpe_mapping_status": {"const": "ambiguous"}}}, "then": {"properties": {"expected_cpe23": {"type": "null"}}}}
+      ]
+    },
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["annotator_id", "reviewed_at", "adjudication_status", "reviewer_id", "notes"],
+      "properties": {
+        "annotator_id": {"type": "string"},
+        "reviewed_at": {"type": ["string", "null"]},
+        "adjudication_status": {"enum": ["pending", "reviewed", "disputed", "adjudicated"]},
+        "reviewer_id": {"type": ["string", "null"]},
+        "notes": {"type": "string"}
+      }
+    }
+  }
 }

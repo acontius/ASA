@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from app.cpe.parser import parse_cpe23
 
 FIELDS = {"product_name", "vendor", "version", "update", "part", "cpe_candidates", "evidence_paths", "abstain", "explanation"}
-SYSTEM = '''Extract software identity from the provided raw JSON record. Return one strict JSON object with exactly: product_name, vendor, version, update, part, cpe_candidates, evidence_paths, abstain, explanation. Use null for unknown fields; cpe_candidates is a list. Distinguish protocol versions (for example SSH protocol 2.0) from software versions. Never invent a CPE: propose one only if supported by evidence and present in the provided candidate list. Otherwise abstain. Evidence paths must be JSON paths into the input.'''
+SYSTEM = '''Extract software identity from the provided raw JSON record. Return one strict JSON object with exactly: product_name, vendor, version, update, part, cpe_candidates, evidence_paths, abstain, explanation. Use null for unknown fields; cpe_candidates must be an empty list because this is extraction-only. Distinguish protocol versions (for example SSH protocol 2.0) from software versions. Do not propose or invent a CPE. Evidence paths must be JSON paths into the input.'''
 
 
 def validate_output(text: str, allowed_cpes: set[str] | None = None) -> tuple[dict | None, str | None, bool]:

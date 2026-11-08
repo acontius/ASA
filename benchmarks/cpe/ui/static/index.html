@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASA CPE Local Workbench</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div><strong>ASA CPE Workbench</strong><span class="local-tag">local only</span></div>
+    <div id="sourceStatus" class="muted">Connecting to local input…</div>
+  </header>
+  <main>
+    <nav class="tabs" aria-label="Workbench sections">
+      <button class="tab active" data-tab="annotation">Gold annotation</button>
+      <button class="tab" data-tab="smoke">Benchmark smoke test</button>
+    </nav>
+
+    <section id="annotation" class="panel active">
+      <div class="toolbar">
+        <label>Filter <select id="statusFilter">
+          <option value="pending">Pending</option><option value="all">All</option>
+          <option value="reviewed">Reviewed</option><option value="no_software_identity">No software identity</option>
+          <option value="ambiguous">Ambiguous</option><option value="insufficient_evidence">Insufficient evidence</option>
+          <option value="out_of_scope">Out of scope</option><option value="stale">Stale source</option>
+        </select></label>
+        <label>Find record ID <input id="recordSearch" type="search" maxlength="160" placeholder="rec-…"></label>
+        <button id="searchButton">Find</button>
+        <span id="recordCounter" class="muted"></span>
+      </div>
+      <div class="layout">
+        <aside class="record-list" aria-label="Input records"><div id="recordList"></div></aside>
+        <div class="editor">
+          <div class="record-nav">
+            <button id="previousButton">← Previous</button>
+            <strong id="currentRecord">Select a record</strong>
+            <button id="nextButton">Next →</button>
+          </div>
+          <div id="recordMessage" class="message" role="status"></div>
+          <details class="raw-panel" open>
+            <summary>Original input record (read only)</summary>
+            <pre id="rawRecord">No record selected.</pre>
+          </details>
+          <div class="path-copy">
+            <label for="pathValue">Evidence path</label>
+            <input id="pathValue" placeholder="t22.ssh.result.server_id.software">
+            <button id="copyPath">Copy path</button>
+            <button id="addPathToIdentity">Add to selected identity</button>
+          </div>
+
+          <form id="annotationForm">
+            <div class="section-heading"><h2>Expected identities</h2><button type="button" id="addIdentity">Add identity</button></div>
+            <div id="identityList"></div>
+            <div class="form-grid">
+              <label>Record status <select id="annotationStatus" required>
+                <option value="unreviewed">Unreviewed</option><option value="reviewed">Reviewed</option>
+                <option value="no_software_identity">No software identity</option><option value="ambiguous">Ambiguous</option>
+                <option value="insufficient_evidence">Insufficient evidence</option><option value="out_of_scope">Out of scope</option>
+              </select></label>
+              <label>Annotator ID <input id="annotatorId" maxlength="120"></label>
+              <label>Adjudication status <select id="adjudicationStatus"><option>pending</option><option>reviewed</option><option>disputed</option><option>adjudicated</option></select></label>
+              <label>Reviewer ID <input id="reviewerId" maxlength="120"></label>
+              <label class="wide">Annotation notes <textarea id="annotationNotes" rows="2"></textarea></label>
+            </div>
+            <div class="form-actions"><button id="saveAnnotation" type="submit" class="primary">Validate and save Gold</button><span id="saveMessage" role="status"></span></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section id="smoke" class="panel">
+      <h1>Benchmark smoke test</h1>
+      <p class="muted">Runs the existing benchmark runner on a small prefix of valid input records. LLM and Agent runs call the configured loopback llama.cpp endpoint only after you start the run.</p>
+      <form id="smokeForm" class="smoke-form">
+        <label>Method <select id="smokeMethod"><option value="deterministic">Deterministic</option><option value="llm">Direct LLM</option><option value="agent">Agent</option></select></label>
+        <label>Records <input id="smokeCount" type="number" min="1" max="40" value="5" required></label>
+        <label>Configured local model <select id="smokeModel"><option value="">Select model</option></select></label>
+        <button type="submit" class="primary">Start smoke test</button>
+      </form>
+      <div id="smokeMessage" class="message" role="status"></div>
+      <div id="smokeProgress" class="progress hidden">
+        <div><strong id="jobState">Idle</strong> <span id="jobCount"></span></div>
+        <progress id="jobProgress" max="1" value="0"></progress>
+        <p>Output: <code id="jobOutput"></code></p>
+        <pre id="jobSummary"></pre>
+      </div>
+      <p class="notice">Accuracy is shown as unavailable or partial when adjudicated Gold does not cover the selected records. This smoke test does not score model proposals as human labels.</p>
+    </section>
+  </main>
+</body>
+</html>
