@@ -7,3 +7,13 @@ out/
 *.sqlite-wal
 *.sqlite-shm
 dist/
+.env
+
+# Local benchmark inputs / model weights
+benchmarks/cpe/data/sample.jsonl
+benchmarks/cpe/data/gold.jsonl
+benchmarks/cpe/models/
+benchmarks/cpe/results/*.jsonl
+benchmarks/cpe/results/*.csv
+benchmarks/cpe/results/*.md
+benchmarks/cpe/results/*.summary.json
