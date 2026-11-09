@@ -17,7 +17,7 @@ class Response:
     def __enter__(self): return self
     def __exit__(self, *args): pass
     def getcode(self): return 200
-    def read(self): return self.body
+    def read(self, size=-1): return self.body if size < 0 else self.body[:size]
 
 
 class NvdRunnerTests(unittest.TestCase):
