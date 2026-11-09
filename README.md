@@ -1,8 +1,8 @@
 # ASA — Agentic Vulnerability Scanner
 
-Passive assessment pipeline that extracts software/product identification evidence from network scan output, preparing it for later CPE resolution and vulnerability assessment.
+Passive assessment pipeline that extracts software/product identification evidence from scan output. It retains the legacy offline M1–M4 commands and adds an explicit authenticated Online NVD assessment command.
 
-**Current milestone:** M4 — Offline CVE intelligence import and conservative applicability assessment.
+**Online target workflow:** deterministic M2 extraction → official NVD CPE API 2.0 → official NVD CVE API 2.0 → conservative applicability evaluation. Legacy offline M3/M4 commands remain available.
 
 ## Run with Docker (recommended for a repeatable environment)
 
@@ -37,6 +37,31 @@ Resume:
       --output out/outcomes.jsonl --checkpoint out/scan.ckpt.json --resume
 
 The CLI refuses to write outcomes onto the input path. Details: docs/m2_implementation.md.
+
+## Authenticated Online NVD assessment
+
+The explicit production online path requires `NVD_API_KEY` in the process environment or the existing ignored local `.env` file. It uses one shared request scheduler/cap for both official HTTPS endpoints. Input is streamed and the versioned `online-assessment-v1` JSONL output is never overwritten on a fresh run.
+
+```bash
+python -m app.cli online-assess \
+  --input Data/PartOfMe.json \
+  --output out/online-assessment.jsonl \
+  --checkpoint out/online-assessment.ckpt.json \
+  --max-api-requests 500
+```
+
+Resume with the same paths and add `--resume`. Processing is at-least-once: interruption after output flush but before checkpoint update can replay a record. API failures and incomplete pagination stay distinct from a complete empty result.
+
+Docker Compose forwards the host `NVD_API_KEY` environment variable (or an ignored project `.env` value):
+
+```bash
+docker compose run --rm asa online-assess \
+  --input /data/PartOfMe.json \
+  --output /out/online-assessment.jsonl \
+  --checkpoint /out/online-assessment.ckpt.json
+```
+
+Only extracted identity terms and validated CPEs are sent to NVD, not complete scan records. The online path does not use local SQLite or local NVD feeds. `CVE retrieval != applicability`; `potentially_affected` is not confirmed vulnerable, and `unknown` is not false. See [the output schema](schemas/online_assessment.schema.json) and [online workflow guide](docs/online_assessment.md).
 
 ## Opt-in local agent
 
@@ -91,7 +116,7 @@ Supported protocols: SSH, HTTP/HTTPS, FTP, MongoDB. Other protocols are reported
 
 ## Privacy
 
-Scan data stays on the local machine. The M2, M3, and M4 commands do not call NVD, other APIs, or a model. The optional agent command calls only the loopback llama-server you started; it has no cloud fallback. Users download public NVD feeds and model files separately. Fixtures use redacted addresses. Synthetic CVE, CPE Match, and CPE dictionary fixtures are not official NVD downloads. Database files and `out/` are gitignored. `potentially_affected` is not a statement that an asset is confirmed vulnerable.
+Scan data stays on the local machine. Legacy M2, M3, and M4 commands do not call NVD, other APIs, or a model. The explicit `online-assess` command contacts only the official NVD CPE and CVE APIs and requires the API key. The optional agent command calls only the loopback llama-server you started; it has no cloud fallback. Users download public NVD feeds and model files separately for legacy offline commands. Fixtures use redacted addresses. Synthetic CVE, CPE Match, and CPE dictionary fixtures are not official NVD downloads. Database files and `out/` are gitignored. `potentially_affected` is not a statement that an asset is confirmed vulnerable.
 
 ## License
 
