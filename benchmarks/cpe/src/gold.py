@@ -124,6 +124,11 @@ def validate_gold_v2(record: dict, source_document: Any | None = None) -> list[s
         for key in ("expected_vendor", "expected_version", "expected_update", "expected_part", "expected_cpe23"):
             if identity.get(key) is not None and not isinstance(identity.get(key), str):
                 errors.append(prefix + f" {key} must be a string or null")
+            elif identity.get(key) is not None and not identity[key].strip():
+                errors.append(prefix + f" {key} must be null when unknown, not an empty string")
+        part = identity.get("expected_part")
+        if isinstance(part, str) and part.strip().casefold() not in {"a", "o", "h", "*", "-"}:
+            errors.append(prefix + " expected_part must be a, o, h, *, -, or null")
         mapping = identity.get("cpe_mapping_status")
         if mapping not in MAPPING_STATES:
             errors.append(prefix + " invalid cpe_mapping_status")
@@ -176,10 +181,14 @@ def validate_gold_v2(record: dict, source_document: Any | None = None) -> list[s
             errors.append("annotation has unexpected fields: " + ", ".join(sorted(annotation.keys() - required)))
         if not isinstance(annotation.get("annotator_id"), str):
             errors.append("annotation.annotator_id must be a string")
+        elif record.get("annotation_status") in {"reviewed", "no_software_identity"} and not annotation["annotator_id"].strip():
+            errors.append("annotation.annotator_id is required for reviewed records")
         if annotation.get("reviewed_at") is not None and not isinstance(annotation.get("reviewed_at"), str):
             errors.append("annotation.reviewed_at must be a string or null")
         if annotation.get("adjudication_status") not in ADJUDICATION_STATES:
             errors.append("invalid annotation.adjudication_status")
+        elif record.get("annotation_status") == "no_software_identity" and annotation["adjudication_status"] not in {"reviewed", "adjudicated"}:
+            errors.append("no_software_identity requires a deliberate reviewed or adjudicated decision")
         if annotation.get("reviewer_id") is not None and not isinstance(annotation.get("reviewer_id"), str):
             errors.append("annotation.reviewer_id must be a string or null")
         if not isinstance(annotation.get("notes"), str):

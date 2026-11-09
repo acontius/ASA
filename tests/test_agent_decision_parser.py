@@ -106,7 +106,13 @@ class TestDecisionParser(unittest.TestCase):
         raw = "[" * 2000 + "]" * 2000
         with self.assertRaises(DecisionParseError) as caught:
             parse_agent_decision(raw)
-        self.assertEqual(str(caught.exception), "model response is not valid JSON")
+        # Python versions differ on whether this valid but deeply nested JSON
+        # reaches the non-object contract check or hits the parser recursion
+        # limit first. Both outcomes are safely rejected by the parser.
+        self.assertIn(
+            str(caught.exception),
+            {"model response is not valid JSON", "model response must be a JSON object"},
+        )
         self.assertLess(len(str(caught.exception)), 200)
 
 

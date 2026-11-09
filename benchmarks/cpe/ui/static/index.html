@@ -30,6 +30,20 @@
         <button id="searchButton">Find</button>
         <span id="recordCounter" class="muted"></span>
       </div>
+      <details class="guide">
+        <summary>How to annotate a software identity</summary>
+        <div class="guide-body">
+          <ol>
+            <li>Inspect the original JSON and identify each software product/version supported by its evidence.</li>
+            <li>Add one independent identity card for each product/version. A record with three products gets three cards.</li>
+            <li>Enter only supported product, vendor, version, update, and part values; leave unknown optional values blank.</li>
+            <li>Copy exact evidence paths from the source record. Decide CPE mapping independently; do not guess a CPE.</li>
+            <li>Choose the record-level review status, validate, then save. Uncertain records are not confirmed negatives.</li>
+          </ol>
+          <p><strong>Record status applies to the whole record:</strong> reviewed = identities are fully annotated; no_software_identity = deliberate reviewed negative; ambiguous = evidence does not resolve identity; insufficient_evidence = not enough evidence; out_of_scope = outside this benchmark.</p>
+          <p><strong>Synthetic example:</strong> if raw evidence contains <code>ExampleServer/2.4</code> at <code>_source.http.server</code>, add one card for ExampleServer, version 2.4, with that evidence path. This is illustrative only; no fields are prefilled from model output.</p>
+        </div>
+      </details>
       <div class="layout">
         <aside class="record-list" aria-label="Input records"><div id="recordList"></div></aside>
         <div class="editor">
@@ -43,6 +57,7 @@
             <summary>Original input record (read only)</summary>
             <pre id="rawRecord">No record selected.</pre>
           </details>
+          <div id="validationSummary" class="validation-summary hidden" role="alert"></div>
           <div class="path-copy">
             <label for="pathValue">Evidence path</label>
             <input id="pathValue" placeholder="t22.ssh.result.server_id.software">
@@ -51,7 +66,7 @@
           </div>
 
           <form id="annotationForm">
-            <div class="section-heading"><h2>Expected identities</h2><button type="button" id="addIdentity">Add identity</button></div>
+            <div class="section-heading"><div><h2>Software identities</h2><p class="muted">One editable identity card per distinct product/version. Add multiple cards when one record identifies multiple products.</p></div><button type="button" id="addIdentity">Add Software Identity</button></div>
             <div id="identityList"></div>
             <div class="form-grid">
               <label>Record status <select id="annotationStatus" required>
@@ -59,10 +74,12 @@
                 <option value="no_software_identity">No software identity</option><option value="ambiguous">Ambiguous</option>
                 <option value="insufficient_evidence">Insufficient evidence</option><option value="out_of_scope">Out of scope</option>
               </select></label>
-              <label>Annotator ID <input id="annotatorId" maxlength="120"></label>
-              <label>Adjudication status <select id="adjudicationStatus"><option>pending</option><option>reviewed</option><option>disputed</option><option>adjudicated</option></select></label>
-              <label>Reviewer ID <input id="reviewerId" maxlength="120"></label>
-              <label class="wide">Annotation notes <textarea id="annotationNotes" rows="2"></textarea></label>
+              <p id="recordStatusHelp" class="field-help wide">This status describes the entire source record, not an individual identity's CPE mapping.</p>
+              <small id="recordStatusError" class="field-error wide" aria-live="polite"></small>
+              <label data-field="annotator_id">Annotator ID <input id="annotatorId" maxlength="120"><small class="field-error" aria-live="polite"></small></label>
+              <label data-field="adjudication_status">Adjudication status <select id="adjudicationStatus"><option>pending</option><option>reviewed</option><option>disputed</option><option>adjudicated</option></select><small class="field-error" aria-live="polite"></small></label>
+              <label data-field="reviewer_id">Reviewer ID <input id="reviewerId" maxlength="120"><small class="field-error" aria-live="polite"></small></label>
+              <label class="wide" data-field="notes">Annotation notes <textarea id="annotationNotes" rows="2"></textarea><small class="field-error" aria-live="polite"></small></label>
             </div>
             <div class="form-actions"><button id="saveAnnotation" type="submit" class="primary">Validate and save Gold</button><span id="saveMessage" role="status"></span></div>
           </form>
@@ -72,13 +89,15 @@
 
     <section id="smoke" class="panel">
       <h1>Benchmark smoke test</h1>
-      <p class="muted">Runs the existing benchmark runner on a small prefix of valid input records. LLM and Agent runs call the configured loopback llama.cpp endpoint only after you start the run.</p>
+        <p class="muted">Choose “Same-record comparison” to run deterministic, Direct LLM and Agent on the same first records. Repeat once for each local model. LLM and Agent use only the ready loopback model selected below.</p>
       <form id="smokeForm" class="smoke-form">
-        <label>Method <select id="smokeMethod"><option value="deterministic">Deterministic</option><option value="llm">Direct LLM</option><option value="agent">Agent</option></select></label>
+        <label>Test <select id="smokeMethod"><option value="comparison">Same-record comparison (all 3 methods)</option><option value="deterministic">Deterministic only</option><option value="llm">Direct LLM only</option><option value="agent">Agent only</option></select></label>
         <label>Records <input id="smokeCount" type="number" min="1" max="40" value="5" required></label>
         <label>Configured local model <select id="smokeModel"><option value="">Select model</option></select></label>
         <button type="submit" class="primary">Start smoke test</button>
       </form>
+      <p id="smokeModelStatus" class="field-help" role="status">Checking local model weights and configured server…</p>
+      <p id="nvdApiStatus" class="field-help" role="status">Checking NVD API configuration…</p>
       <div id="smokeMessage" class="message" role="status"></div>
       <div id="smokeProgress" class="progress hidden">
         <div><strong id="jobState">Idle</strong> <span id="jobCount"></span></div>

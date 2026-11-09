@@ -68,23 +68,74 @@ def _compatible(prediction: dict, gold: dict) -> bool:
 
 
 def _maximum_matching(predictions: list[dict], identities: list[dict]) -> dict[int, int]:
-    """Deterministic maximum-cardinality bipartite matching; no item can match twice."""
-    adjacency = {p: [g for g, identity in enumerate(identities) if _compatible(prediction, identity)] for p, prediction in enumerate(predictions)}
-    gold_to_pred: dict[int, int] = {}
-
-    def augment(pred_index: int, seen: set[int]) -> bool:
-        for gold_index in adjacency[pred_index]:
-            if gold_index in seen:
+    """Maximize identity matches, then field agreements, with deterministic ties."""
+    prediction_count, gold_count = len(predictions), len(identities)
+    if not prediction_count or not gold_count:
+        return {}
+    cardinality_bonus = 5 * min(prediction_count, gold_count) + 1
+    weights: list[list[int]] = []
+    valid_edges: set[tuple[int, int]] = set()
+    for pred_index, prediction in enumerate(predictions):
+        row = []
+        for gold_index, identity in enumerate(identities):
+            if not _compatible(prediction, identity):
+                row.append(-cardinality_bonus)
                 continue
-            seen.add(gold_index)
-            if gold_index not in gold_to_pred or augment(gold_to_pred[gold_index], seen):
-                gold_to_pred[gold_index] = pred_index
-                return True
-        return False
+            valid_edges.add((pred_index, gold_index))
+            agreements = sum(
+                identity_value_matches(field, _get(prediction, field), _get(identity, field)) is True
+                for field in IDENTITY_FIELDS
+            )
+            row.append(cardinality_bonus + agreements)
+        # Dummy columns let predictions remain unmatched at zero weight.
+        row.extend([0] * prediction_count)
+        weights.append(row)
 
-    for pred_index in range(len(predictions)):
-        augment(pred_index, set())
-    return {pred_index: gold_index for gold_index, pred_index in gold_to_pred.items()}
+    # Rectangular Hungarian assignment (rows <= columns), minimizing negated
+    # weights. Valid identity cardinality dominates all possible field-score
+    # differences; field agreement breaks ties among maximum-cardinality sets.
+    row_count, column_count = prediction_count, gold_count + prediction_count
+    u, v = [0] * (row_count + 1), [0] * (column_count + 1)
+    column_row, previous = [0] * (column_count + 1), [0] * (column_count + 1)
+    for row_index in range(1, row_count + 1):
+        column_row[0] = row_index
+        min_value = [float("inf")] * (column_count + 1)
+        used = [False] * (column_count + 1)
+        column = 0
+        while True:
+            used[column] = True
+            active_row = column_row[column]
+            delta, next_column = float("inf"), 0
+            for candidate_column in range(1, column_count + 1):
+                if used[candidate_column]:
+                    continue
+                cost = -weights[active_row - 1][candidate_column - 1] - u[active_row] - v[candidate_column]
+                if cost < min_value[candidate_column]:
+                    min_value[candidate_column] = cost
+                    previous[candidate_column] = column
+                if min_value[candidate_column] < delta:
+                    delta, next_column = min_value[candidate_column], candidate_column
+            for candidate_column in range(column_count + 1):
+                if used[candidate_column]:
+                    u[column_row[candidate_column]] += delta
+                    v[candidate_column] -= delta
+                else:
+                    min_value[candidate_column] -= delta
+            column = next_column
+            if column_row[column] == 0:
+                break
+        while True:
+            prior_column = previous[column]
+            column_row[column] = column_row[prior_column]
+            column = prior_column
+            if column == 0:
+                break
+    matching = {}
+    for column in range(1, column_count + 1):
+        pred_index, gold_index = column_row[column] - 1, column - 1
+        if pred_index >= 0 and gold_index < gold_count and (pred_index, gold_index) in valid_edges:
+            matching[pred_index] = gold_index
+    return matching
 
 
 def _resolution_cpes(row: dict) -> list[str]:
