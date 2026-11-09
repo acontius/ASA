@@ -29,7 +29,7 @@
         "expected_vendor": {"type": ["string", "null"]},
         "expected_version": {"type": ["string", "null"]},
         "expected_update": {"type": ["string", "null"]},
-        "expected_part": {"type": ["string", "null"]},
+        "expected_part": {"type": ["string", "null"], "enum": ["a", "o", "h", "*", "-", null]},
         "cpe_mapping_status": {"enum": ["mapped", "not_in_dictionary", "ambiguous", "version_unresolved", "unreviewed"]},
         "expected_cpe23": {"type": ["string", "null"]},
         "acceptable_cpes": {"type": "array", "items": {"type": "string"}},

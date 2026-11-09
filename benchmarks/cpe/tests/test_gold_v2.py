@@ -55,6 +55,18 @@ class GoldV2Tests(unittest.TestCase):
         self.assertEqual(result["identity_metrics"]["recall"],1)
         self.assertEqual(result["identity_metrics"]["precision"],1)
 
+    def test_matching_maximizes_component_agreement_after_identity_cardinality(self):
+        row=gold("r",[identity("vendor-known","OpenSSH","OpenBSD",None),identity("version-known","OpenSSH",None,"9.6p1")])
+        predictions=[
+            {"candidate_id":"vendor-only","product_name":"OpenSSH","vendor":"OpenBSD","version":None},
+            {"candidate_id":"version-known","product_name":"OpenSSH","vendor":"OpenBSD","version":"9.6p1"},
+        ]
+        result=evaluate([{"record_id":"r","source_hash":row["source_hash"],"extraction_predictions":predictions}],{"r":row})
+        tracks=result["evaluation_tracks"]["extraction_only"]
+        self.assertEqual(result["identity_metrics"]["f1"],1)
+        self.assertEqual(tracks["vendor_metrics"]["f1"],1)
+        self.assertEqual(tracks["version_metrics"]["f1"],1)
+
     def test_missing_and_additional_identities_are_penalized(self):
         row=gold("r",[identity("a","nginx","f5","1.24"),identity("b","openssh","openbsd","9.6")])
         missing=evaluate([{"record_id":"r","source_hash":row["source_hash"],"extraction_predictions":[]}],{"r":row})
@@ -85,6 +97,19 @@ class GoldV2Tests(unittest.TestCase):
         self.assertEqual(end["mapped_gold_identities"],1)
         self.assertEqual(end["unmapped_identity_counts"]["not_in_dictionary"],1)
         self.assertEqual(end["exact_cpe_accuracy"],0)
+
+    def test_unreviewed_mapping_remains_extraction_gold_but_is_excluded_from_cpe_scoring(self):
+        row=gold("r",[identity("r-1","OpenSSH","OpenBSD","9.6p1","unreviewed")])
+        prediction={"product_name":"OpenSSH","vendor":"OpenBSD","version":"9.6p1","part":"a","abstain":False}
+        self.assertEqual(validate_gold_v2(row),[])
+        result=evaluate([{"record_id":"r","source_hash":row["source_hash"],"extraction_predictions":[prediction]}],{"r":row})
+        extraction=result["evaluation_tracks"]["extraction_only"]
+        cpe=result["evaluation_tracks"]["end_to_end_cpe"]
+        self.assertEqual(result["scored_records"],1)
+        self.assertEqual(extraction["identity_metrics"]["f1"],1)
+        self.assertEqual(cpe["mapped_gold_identities"],0)
+        self.assertIsNone(cpe["exact_cpe_accuracy"])
+        self.assertEqual(cpe["unmapped_identity_counts"]["unreviewed"],1)
 
     def test_end_to_end_cpe_track_is_independent_and_one_to_one(self):
         first=identity("first","OpenSSH","OpenBSD","9.6p1","mapped",MAPPED_CPE)

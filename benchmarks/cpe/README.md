@@ -39,7 +39,7 @@ Gold is JSONL with one row per source record. Each row has explicit `schema_vers
 
 Record statuses are `reviewed` (all identifiable identities recorded), `no_software_identity` (reviewed confirmed negative), `ambiguous`, `insufficient_evidence`, `out_of_scope`, and `unreviewed`. Primary scoring requires record status `reviewed` or `no_software_identity` **and** annotation adjudication status `reviewed` or `adjudicated`. A pending second review therefore does not enter primary scoring. Uncertain, excluded, unreviewed, stale, and malformed rows are counted separately and never treated as confirmed negatives.
 
-Each identity requires a concrete product and evidence path. Vendor, version, update, and CPE part are optional; `null` means unknown/unscored. CPE mapping status is `mapped`, `not_in_dictionary`, `ambiguous`, `version_unresolved`, or `unreviewed`. `mapped` requires a primary CPE; other non-mapped statuses cannot claim one. `ambiguous` may list acceptable alternatives when those alternatives are human-reviewed. Every listed CPE is parsed and checked against the specified identity components. A wildcard CPE component is accepted only when that Gold component is unspecified or `*`; a specified concrete Gold component must match. The local NVD dictionary is a retrieval/validity resource, never the source of Gold labels.
+Each identity requires a concrete product and evidence path. Vendor, version, update, and CPE part are optional; `null` means unknown/unscored. CPE mapping status is `mapped`, `not_in_dictionary`, `ambiguous`, `version_unresolved`, or `unreviewed`. Use `unreviewed` to save and score an independently reviewed identity before CPE mapping adjudication; it is excluded from exact CPE scoring. `mapped` requires a primary CPE; other non-mapped statuses cannot claim one. `ambiguous` may list acceptable alternatives when those alternatives are human-reviewed. Every listed CPE is parsed and checked against the specified identity components. A wildcard CPE component is accepted only when that Gold component is unspecified or `*`; a specified concrete Gold component must match. The local NVD dictionary is a retrieval/validity resource, never the source of Gold labels.
 
 Gold v1 remains readable with its original explicit legacy interpretation. It is not silently upgraded. To create a separate v2 file, supply the source input and a destination that does not exist:
 
@@ -86,6 +86,27 @@ python -m benchmarks.cpe.ui \
 
 Open <http://127.0.0.1:8765/>. The Gold tab supports record search/navigation, status filters, raw JSON viewing, evidence paths, multiple identities, and validation before save. The smoke-test tab offers only implemented methods (`deterministic`, `llm`, `agent`), a 1–40 record bound (default 5), and configured local model aliases. Start a run explicitly. It reports progress, outcomes, errors, latency, output path, and accuracy only when Gold supports scoring. Missing Gold is shown as unavailable; incomplete or partly adjudicated Gold is shown as partial, not as a complete accuracy benchmark. LLM/Agent runs require an already-running local llama.cpp endpoint configured in `config/benchmark.json` and the chosen model already installed.
 
+### Easiest same-record test
+
+Start the UI with the pilot sample (100 records) as read-only input and the local Gold file:
+
+```bash
+python -m benchmarks.cpe.ui \
+  --input benchmarks/cpe/results/pilot-sample.jsonl \
+  --gold benchmarks/cpe/data/gold.jsonl \
+  --host 127.0.0.1 --port 8765
+```
+
+Start only one local model server at a time. The aliases below must match the alias selected in the dashboard. Qwen example:
+
+```bash
+llama serve \
+  --model "/home/acontius/.cache/huggingface/hub/models--Qwen--Qwen3-8B-GGUF/snapshots/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf" \
+  --host 127.0.0.1 --port 8080 --alias qwen --ctx-size 4096 --n-gpu-layers 0
+```
+
+For the locally detected Llama file, use the same command with `--model "/home/acontius/amin/benchmarks/cpe/models/llama/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"` and `--alias llama`. Check the server before opening a run with `curl http://127.0.0.1:8080/v1/models`; dashboard readiness also checks the selected alias. In the Benchmark tab select **Same-record comparison**, choose 1–5 records, select the ready alias, and start. The UI runs deterministic, Direct LLM, and Agent sequentially on the same records and writes three unique output files. Repeat after stopping the first server and starting the other model. Outputs contain execution measurements, not an accuracy claim. When no reviewed Gold covers those records, accuracy stays unavailable. Accuracy requires human-reviewed Gold; the CPE dictionary and model predictions must not be used to create it.
+
 ## CLI benchmark
 
 ```bash
@@ -93,6 +114,21 @@ python -m benchmarks.cpe.src.runner --prepare
 python -m benchmarks.cpe.src.runner --method deterministic
 python -m benchmarks.cpe.src.report
 ```
+
+### Deterministic NVD CPE API 2.0 source
+
+The deterministic command runs the unchanged M2 normalizer/extractors and resolves each extracted identity against the official HTTPS NVD CPE API 2.0. It does not consult `out/cpe-dictionary.sqlite` or local dictionary chunks. Only extracted product/vendor/part/version/update terms are sent; raw records, IPs, banners, and evidence paths are not sent. Without an API key it paces requests at 6.1 seconds; with `NVD_API_KEY` it uses 0.7 seconds. A local key may be stored as the only line in the ignored `.env` file (`NVD_API_KEY=<your-key>`), or supplied through the environment. The key is never emitted in results.
+
+```bash
+python -m benchmarks.cpe.src.runner --method deterministic --limit 5
+```
+
+Omit `--limit 5` to process the full prepared sample.
+To rerun the prepared 100-record pilot explicitly, use `python -m benchmarks.cpe.src.runner --method deterministic --sample benchmarks/cpe/results/pilot-sample.jsonl --limit 100`. Custom sample paths are restricted to JSONL files inside `benchmarks/cpe/results`; each run writes a unique result file.
+
+Each run writes a new uniquely named JSONL result and matching summary; existing benchmark outputs are never overwritten. Rows record `cpe_source: nvd_api_2.0`, query strategy, timestamp, API status, pagination, retry count, and candidate metadata. API failures and incomplete pagination remain explicit errors/incomplete resolutions, not `no_match`. Keyword search is bounded discovery only and cannot select a final CPE. The opt-in live check is `NVD_LIVE_TEST=1 python -m unittest benchmarks.cpe.tests.test_nvd_integration -v`; normal unit tests are network-free.
+
+The resolver rejects returned CPEs with unsupported concrete components, including update, edition, language, software edition, target software/hardware, and other. A narrow `GNU <product>` decomposition is recorded as `identity_derivation` and always produces `review_required`; the original M2 extraction is preserved. Components supplied only by a unique dictionary entry are listed separately from source-verified components. A known GNU InetUtils CPE name containing a space produced an empty-body HTTP 404, so the lookup uses the explicit `gnu:inetutils` component query instead of retrying that invalid form.
 
 Direct/Agent inference is local-only and is not started by the UI unless the user explicitly requests a smoke run. The runner does not download model weights. Keep raw scan inputs, Gold labels, manifests, model files, and generated results out of Git; current `.gitignore` excludes `benchmarks/cpe/data/gold.jsonl`, `benchmarks/cpe/data/sample.jsonl`, model weights, and `benchmarks/cpe/results` outputs. Check `git status` before staging any benchmark source change.
 

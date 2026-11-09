@@ -1,6 +1,7 @@
 import json, tempfile, unittest
 from pathlib import Path
-from benchmarks.cpe.src.dataset import sample, validate_gold
+from benchmarks.cpe.src.dataset import prepare_pilot_sample, sample, stable_id, validate_gold
+from benchmarks.cpe.src.gold import canonical_source_hash
 
 class DatasetTests(unittest.TestCase):
     def test_sampling_is_reproducible_jsonl(self):
@@ -13,6 +14,24 @@ class DatasetTests(unittest.TestCase):
             a=sample(src,out,8,7); b=sample(src,out,8,7)
             with out.open() as f: count=len(f.readlines())
             self.assertEqual([x["record_id"] for x in a],[x["record_id"] for x in b]); self.assertEqual(count,8)
+
+    def test_pilot_sample_contains_raw_records_strata_and_malformed_counts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/"input.jsonl"
+            doc={"_id":"pilot-1","_source":{"id":"pilot-1","proto":"ssh","path":"/x","ip":"127.0.0.1","scanTime":"1","port":"t22","appId":"x","t22":{"ssh":{"result":{"server_id":{"software":"OpenSSH_9.6p1"}}}}}}
+            source.write_bytes((json.dumps(doc)+"\n[]\n{bad\n").encode()+b"\xff\n")
+            first=prepare_pilot_sample(source,root/"first.jsonl",10,31)
+            second=prepare_pilot_sample(source,root/"second.jsonl",10,31)
+            rows=[json.loads(line) for line in (root/"first.jsonl").read_text().splitlines()]
+            self.assertEqual(first["sample_records"],1)
+            self.assertEqual(first["malformed_json_rows"],2)
+            self.assertEqual(first["non_object_rows"],1)
+            self.assertEqual(first["protocol_distribution"],second["protocol_distribution"])
+            self.assertEqual(rows[0]["record_id"],stable_id(doc,1))
+            self.assertEqual(rows[0]["source_hash"],canonical_source_hash(doc))
+            self.assertEqual(rows[0]["raw"],doc)
+            self.assertIn("candidate_count_stratum",rows[0])
+            self.assertNotIn("prediction",rows[0])
     def test_gold_contract(self):
         self.assertIn("missing fields", " ".join(validate_gold({})))
     def test_gold_cpe_must_exist_in_dictionary(self):

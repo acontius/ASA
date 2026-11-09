@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
+from collections import Counter
 from pathlib import Path
 from typing import Any
 from benchmarks.cpe.src.identity import compare_cpe_identity, gold_identity
@@ -39,6 +40,8 @@ def stable_id(doc: dict[str, Any], line: int) -> str:
 
 def protocol_of(doc: dict[str, Any]) -> str:
     src = doc.get("_source", {})
+    if not isinstance(src, dict):
+        src = {}
     declared = str(src.get("proto", "")).lower()
     present = [p for p in PROTOCOLS if any(isinstance(src.get(k), dict) and p in src[k] for k in src if len(k) > 1 and k[0] in "tu" and k[1:].isdigit())]
     return declared if declared in present else present[0] if present else declared if declared in PROTOCOLS else "other"
@@ -55,6 +58,11 @@ def evidence_bucket(doc: dict[str, Any]) -> str:
 
 def extraction_strata(doc: dict[str, Any], line: int) -> tuple[str, str, str]:
     """Use M2 labels only to form sample strata, never as evaluation gold."""
+    outcome, strength, version_presence, _candidate_count = _extraction_details(doc, line)
+    return outcome, strength, version_presence
+
+
+def _extraction_details(doc: dict[str, Any], line: int) -> tuple[str, str, str, int | None]:
     try:
         from app.extractors import EXTRACTORS, extract_candidates
         from app.ingestion.normalizer import normalize
@@ -66,9 +74,9 @@ def extraction_strata(doc: dict[str, Any], line: int) -> tuple[str, str, str]:
         strengths = [c["evidence_strength"] for c in candidates]
         strength = "strong" if "strong" in strengths else "moderate" if "moderate" in strengths else "weak"
         version_presence = "with_version" if any(isinstance(c.get("version"), str) and c["version"].strip() for c in candidates) else "without_version"
-        return outcome, strength, version_presence
+        return outcome, strength, version_presence, len(candidates)
     except Exception:
-        return "processing_error", "weak", "without_version"
+        return "processing_error", "unavailable", "unavailable", None
 
 
 def sample(input_path: str | Path, output_path: str | Path, size: int = 40, seed: int = 20261107) -> list[dict[str, Any]]:
@@ -94,6 +102,85 @@ def sample(input_path: str | Path, output_path: str | Path, size: int = 40, seed
         for row in selected:
             f.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
     return selected
+
+
+def prepare_pilot_sample(input_path: str | Path, output_path: str | Path, size: int = 100, seed: int = 20261108) -> dict[str, Any]:
+    """Write up to 100 raw source records stratified for human annotation.
+
+    M2 is used only to create sampling strata. Its outputs are recorded as
+    diagnostics, never as Gold labels. The destination must not already exist.
+    """
+    from benchmarks.cpe.src.gold import canonical_source_hash
+
+    if isinstance(size, bool) or not isinstance(size, int) or not 1 <= size <= 100:
+        raise ValueError("pilot sample size must be from 1 through 100")
+    buckets: dict[tuple[str, str, str, str], list[dict[str, Any]]] = {}
+    malformed = non_object = valid = duplicates = 0
+    seen_ids: set[str] = set()
+    with Path(input_path).open("rb") as stream:
+        for line_number, raw_line in enumerate(stream, 1):
+            if not raw_line.strip():
+                continue
+            try:
+                document = json.loads(raw_line.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                malformed += 1
+                continue
+            if not isinstance(document, dict):
+                non_object += 1
+                continue
+            valid += 1
+            record_id = stable_id(document, line_number)
+            if record_id in seen_ids:
+                duplicates += 1
+                continue
+            seen_ids.add(record_id)
+            protocol = protocol_of(document)
+            outcome, evidence, _version_presence, candidate_count = _extraction_details(document, line_number)
+            if evidence == "unavailable":
+                strength = "unavailable"
+            else:
+                strength = evidence
+            candidate_band = (
+                "unavailable" if candidate_count is None else
+                "zero" if candidate_count == 0 else
+                "single" if candidate_count == 1 else "multiple"
+            )
+            key = (protocol, outcome, strength, candidate_band)
+            buckets.setdefault(key, []).append({
+                "record_id": record_id,
+                "source_hash": canonical_source_hash(document),
+                "raw": document,
+                "protocol": protocol,
+                "m2_outcome_stratum": outcome,
+                "evidence_strength": strength,
+                "candidate_count": candidate_count,
+                "candidate_count_stratum": candidate_band,
+            })
+    rng = random.Random(seed)
+    for values in buckets.values():
+        rng.shuffle(values)
+    selected: list[dict[str, Any]] = []
+    keys = sorted(buckets)
+    while len(selected) < size and any(buckets.values()):
+        for key in keys:
+            if buckets[key] and len(selected) < size:
+                selected.append(buckets[key].pop())
+    destination = Path(output_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("x", encoding="utf-8") as output:
+        for row in selected:
+            output.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
+    return {
+        "sample": str(destination), "sample_records": len(selected),
+        "valid_source_records": valid, "malformed_json_rows": malformed,
+        "non_object_rows": non_object, "duplicate_record_ids": duplicates,
+        "seed": seed,
+        "protocol_distribution": dict(Counter(row["protocol"] for row in selected)),
+        "m2_outcome_distribution": dict(Counter(row["m2_outcome_stratum"] for row in selected)),
+        "evidence_strength_distribution": dict(Counter(row["evidence_strength"] for row in selected)),
+        "candidate_count_distribution": dict(Counter(row["candidate_count_stratum"] for row in selected)),
+    }
 
 
 def create_annotation_manifest(input_path: str | Path, output_path: str | Path, size: int = 100, seed: int = 20261108) -> dict[str, Any]:
