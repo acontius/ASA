@@ -17,6 +17,8 @@ EXTRACTOR_ID = "http.server_header.v1"
 # Tokens that are not a software product even when present.
 _GENERIC = {
     "waf",
+    "web",
+    "webserver",
     "webs",
     "cloudflare",
     "arvancloud",

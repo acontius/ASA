@@ -138,7 +138,7 @@ class OnlineAssessmentTests(unittest.TestCase):
             source = Path(tmp) / "source.jsonl"
             source.write_text(json.dumps(raw) + "\n", encoding="utf-8")
             output = Path(tmp) / "out.jsonl"
-            cpe = FakeCpeClient({"openssh": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*"})
+            cpe = FakeCpeClient({"openssh": "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*"})
             cve = FakeCveClient([])
             run_online_assessment(str(source), str(output), cpe_client=cpe, cve_client=cve)
             row = json.loads(output.read_text().splitlines()[0])
