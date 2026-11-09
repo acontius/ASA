@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asa.local/benchmarks/cpe/extraction-gold-v1-review-manifest.schema.json",
+  "title": "ASA real-source extraction Gold review manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_id", "source_hash", "protocol", "sampling_seed", "sampling_stratum", "source_evidence_refs", "field_review_hints", "annotation_status", "gold_label_generated"],
+  "properties": {
+    "schema_version": {"const": "extraction-gold-v1-review-manifest"},
+    "record_id": {"type": "string", "minLength": 1},
+    "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "protocol": {"type": "string", "minLength": 1},
+    "sampling_seed": {"type": "integer"},
+    "sampling_stratum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["m2_outcome", "candidate_count", "candidate_count_stratum"],
+      "properties": {
+        "m2_outcome": {"type": "string"},
+        "candidate_count": {"type": "integer", "minimum": 0},
+        "candidate_count_stratum": {"enum": ["zero", "single", "multiple"]}
+      }
+    },
+    "source_evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "path", "source_observation", "identity_interpretation"],
+        "properties": {
+          "field": {"type": "string"},
+          "path": {"type": "string"},
+          "source_observation": {"const": "directly_supported_by_source"},
+          "identity_interpretation": {"const": "requires_human_review"}
+        }
+      }
+    },
+    "field_review_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "vendor", "version", "update", "part"],
+      "properties": {
+        "product": {"$ref": "#/$defs/fieldReview"},
+        "vendor": {"$ref": "#/$defs/fieldReview"},
+        "version": {"$ref": "#/$defs/fieldReview"},
+        "update": {"$ref": "#/$defs/fieldReview"},
+        "part": {"$ref": "#/$defs/fieldReview"}
+      }
+    },
+    "annotation_status": {"const": "unreviewed"},
+    "gold_label_generated": {"const": false}
+  },
+  "$defs": {
+    "fieldReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_observation", "identity_interpretation"],
+      "properties": {
+        "source_observation": {"enum": ["directly_supported_by_source", "absent_from_source_evidence"]},
+        "identity_interpretation": {"enum": ["requires_human_review", "unknown_insufficient_evidence"]}
+      }
+    }
+  }
+}

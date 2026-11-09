@@ -365,3 +365,5 @@ def _finish_incomplete(base: dict, rows: list[dict], attempts: list[dict], searc
                                  "total_results": search.total_results, "returned_candidates": len(search.products),
                                  "pages_fetched": search.pages_fetched, "pagination_complete": False,
                                  "truncated_reason": search.truncated_reason or "max_pages_reached"})
+"""Backward-compatible import shim for the shared deterministic NVD CPE resolver."""
+from app.vulnerability.nvd.cpe_resolver import *  # noqa: F401,F403

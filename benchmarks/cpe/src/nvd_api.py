@@ -278,3 +278,5 @@ def _validate_product(item: Any) -> None:
     for key in ("created", "lastModified"):
         if key in cpe and not isinstance(cpe[key], str):
             raise NvdApiError("invalid_response", f"NVD {key} timestamp is malformed")
+"""Backward-compatible import shim for the shared NVD CPE API client."""
+from app.vulnerability.nvd.cpe_client import *  # noqa: F401,F403

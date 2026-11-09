@@ -1,6 +1,6 @@
 # Running ASA with Docker
 
-ASA is a local Python CLI pipeline, not a web service. The container has no network dependency and does not call NVD or an LLM. Input datasets and reference feeds are mounted read-only; generated files go to the host's out/ directory.
+ASA is a local Python CLI pipeline, not a web service. Legacy M2, M3 and M4 commands need no network access. The explicit `online-assess` command contacts only the official NVD CPE and CVE APIs. Input datasets and reference feeds are mounted read-only; generated files go to the host's `out/` directory.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ From the repository root:
     docker compose build
     docker run --rm asa:local help
 
-The first build downloads the base Python image. Runtime processing itself does not need network access.
+The first build downloads the base Python image. Legacy runtime processing needs no network access; `online-assess` requires network access to NVD.
 
 ## 2. Run the sample scan
 
@@ -47,6 +47,28 @@ To resume after an interruption:
       --resume
 
 The current M2 checkpoint behavior is at-least-once; a crash between output flush and checkpoint update can repeat one record.
+
+## Online NVD assessment
+
+The explicit online path requires the host `NVD_API_KEY` environment variable.
+Docker Compose forwards it to the runtime container; do not put the value in
+the compose file or a tracked config. A project-root ignored `.env` can be
+used by Compose for variable interpolation.
+
+```bash
+docker compose run --rm asa online-assess \
+  --input /data/PartOfMe.json \
+  --output /out/online-assessment.jsonl \
+  --checkpoint /out/online-assessment.ckpt.json \
+  --max-api-requests 500
+```
+
+This command contacts only the official NVD CPE and CVE APIs. It requires an
+API key and does not use the local SQLite databases or feeds. Fresh output and
+checkpoint paths must not already exist. Add `--resume` with the same,
+unchanged input and existing files after interruption. Checkpoint behavior is
+at-least-once and does not fingerprint the input. The online output format and
+limitations are documented in [online_assessment.md](online_assessment.md).
 
 ## 3. Run the M3 CPE stage
 

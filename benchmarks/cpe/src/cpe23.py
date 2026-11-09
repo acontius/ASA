@@ -81,3 +81,5 @@ def _decode(raw: str) -> tuple[str, str]:
         if char in "*?": wildcard = True
         chars.append(char); i += 1
     return "".join(chars), "wildcard" if wildcard else "concrete"
+"""Backward-compatible import shim for the shared application CPE 2.3 parser."""
+from app.vulnerability.nvd.cpe23 import *  # noqa: F401,F403

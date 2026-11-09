@@ -14,7 +14,7 @@ class Response:
     def __enter__(self): return self
     def __exit__(self, *args): pass
     def getcode(self): return 200
-    def read(self): return self.body
+    def read(self, size=-1): return self.body if size < 0 else self.body[:size]
 
 
 def doc(names=(), total=None):
@@ -81,6 +81,66 @@ class NvdResolverTests(unittest.TestCase):
         self.assertEqual(sum(a["request_count"] for a in metadata["query_attempts"]), 1)
         self.assertEqual(len(calls), 1)
 
+    def test_openssh_p_release_is_split_for_cpe_lookup_but_keeps_missing_identity_components_under_review(self):
+        name = "cpe:2.3:a:openbsd:openssh:8.9:p1:*:*:*:*:*:*"
+        queries = []
+        def opener(req, timeout):
+            from urllib.parse import parse_qs, urlsplit
+            params = parse_qs(urlsplit(req.full_url).query)
+            queries.append(params.get("cpeMatchString", [None])[0])
+            return Response(doc([name]))
+        source = candidate(product_name="OpenSSH", vendor=None, part=None, version="8.9p1", update=None)
+        result = resolve_candidate_nvd(source, NvdCpeClient(min_interval=0, opener=opener), CFG)
+        self.assertEqual(queries, ["cpe:2.3:*:*:OpenSSH:8.9:p1:*:*:*:*:*:*"])
+        self.assertEqual(result["resolution_status"], "review_required")
+        self.assertEqual(result["cpe_name"], name)
+        metadata = result["nvd_metadata"]
+        self.assertEqual(metadata["identity_derivation"], {
+            "rule": "openssh_p_release_to_cpe_update", "source_component": "version",
+            "observed_value": "8.9p1", "derived_version": "8.9", "derived_update": "p1",
+            "requires_review": False,
+        })
+        self.assertEqual(metadata["inferred_components"], ["vendor", "part"])
+        self.assertEqual(metadata["derived_cpe_components"], ["version", "update"])
+        self.assertEqual(metadata["source_observed_components"], ["product_name", "version"])
+        self.assertEqual(metadata["source_verified_components"], ["product_name", "version"])
+        self.assertEqual(metadata["query_strategy"], "structured_openssh_version_update")
+        self.assertIn("release suffix is mapped", result["notes"])
+
+        fully_observed = candidate(product_name="OpenSSH", vendor="openbsd", part="a",
+                                   version="9.6p1", update=None)
+        active_name = "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*"
+        exact = resolve_candidate_nvd(fully_observed,
+            NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([active_name]))), CFG)
+        self.assertEqual(exact["resolution_status"], "exact_match")
+        self.assertEqual(exact["nvd_metadata"]["inferred_components"], [])
+
+    def test_openssh_release_split_does_not_apply_to_other_products_or_wrong_update(self):
+        from urllib.parse import parse_qs, urlsplit
+        wrong = "cpe:2.3:a:openbsd:openssh:8.9:p2:*:*:*:*:*:*"
+        seen = []
+        def opener(req, timeout):
+            params = parse_qs(urlsplit(req.full_url).query)
+            seen.append(params.get("cpeMatchString", [""])[0])
+            return Response(doc([wrong]))
+        result = resolve_candidate_nvd(candidate(product_name="OpenSSH", vendor=None, part=None,
+                                                version="8.9p1", update=None),
+                                       NvdCpeClient(min_interval=0, opener=opener), CFG)
+        self.assertEqual(seen[0], "cpe:2.3:*:*:OpenSSH:8.9:p1:*:*:*:*:*:*")
+        self.assertNotEqual(result.get("cpe_name"), wrong)
+        self.assertNotEqual(result["resolution_status"], "exact_match")
+
+        seen.clear()
+        other = "cpe:2.3:a:vendor:example:8.9:p1:*:*:*:*:*:*"
+        def other_opener(req, timeout):
+            params = parse_qs(urlsplit(req.full_url).query)
+            seen.append(params.get("cpeMatchString", [""])[0])
+            return Response(doc([other]))
+        resolve_candidate_nvd(candidate(product_name="Example", vendor="vendor", part="a",
+                                        version="8.9p1", update=None),
+                              NvdCpeClient(min_interval=0, opener=other_opener), CFG)
+        self.assertEqual(seen[0], "cpe:2.3:a:vendor:Example:8.9p1:*:*:*:*:*:*:*")
+
     def test_exact_identity(self):
         name = "cpe:2.3:a:f5:nginx:1.25.3:*:*:*:*:*:*:*"
         client = NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([name])))
@@ -89,6 +149,19 @@ class NvdResolverTests(unittest.TestCase):
         self.assertEqual(result["cpe_name"], name)
         self.assertEqual(result["nvd_metadata"]["cpe_source"], "nvd_api_2.0")
         self.assertEqual(result["nvd_metadata"]["query_strategy"], "structured_exact")
+
+    def test_unique_lighttpd_candidate_with_inferred_vendor_and_part_requires_review(self):
+        name = "cpe:2.3:a:lighttpd:lighttpd:1.4.29:*:*:*:*:*:*:*"
+        source = candidate(product_name="lighttpd", vendor=None, part=None, version="1.4.29")
+        client = NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([name])))
+
+        result = resolve_candidate_nvd(source, client, CFG)
+
+        self.assertEqual(result["resolution_status"], "review_required")
+        self.assertEqual(result["cpe_name"], name)
+        self.assertEqual(result["nvd_metadata"]["inferred_components"], ["vendor", "part"])
+        self.assertEqual(result["nvd_metadata"]["source_verified_components"], ["product_name", "version"])
+        self.assertEqual(result["nvd_metadata"]["source_observed_components"], ["product_name", "version"])
 
     def test_vendor_product_version_mismatch_not_selected(self):
         variants = ["cpe:2.3:a:other:nginx:1.25.3:*:*:*:*:*:*:*",
@@ -197,12 +270,13 @@ class NvdResolverTests(unittest.TestCase):
         self.assertEqual(len(m2["outcome"]["candidates"]), 1)
         extracted = m2["outcome"]["candidates"][0]
         self.assertEqual((extracted["product_name"], extracted["version"]), ("OpenSSH", "9.6p1"))
-        name = "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*"
+        name = "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*"
         client = NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([name])))
         resolved = resolve_candidate_nvd(extracted, client, CFG)
-        self.assertEqual(resolved["resolution_status"], "exact_match")
+        self.assertEqual(resolved["resolution_status"], "review_required")
         self.assertEqual(resolved["cpe_name"], name)
         self.assertEqual(resolved["nvd_metadata"]["cpe_source"], "nvd_api_2.0")
+        self.assertEqual(resolved["nvd_metadata"]["inferred_components"], ["vendor", "part"])
 
 
 if __name__ == "__main__": unittest.main()

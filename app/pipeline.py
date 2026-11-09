@@ -60,7 +60,7 @@ def run_pipeline(
                 stats["skipped_blank"] += 1
                 _checkpoint(checkpoint_path, item.next_offset, completed)
                 continue
-            outcome = _process_item(item)
+            outcome = process_m2_item(item)
             handle.write(json.dumps(outcome, ensure_ascii=False))
             handle.write("\n")
             handle.flush()
@@ -78,7 +78,12 @@ def _checkpoint(path: str | None, next_offset: int, completed: int) -> None:
     save_checkpoint(path, Checkpoint(next_offset=next_offset, records_completed=completed))
 
 
-def _process_item(item: JsonlItem) -> ProcessingOutcome:
+def process_m2_item(item: JsonlItem) -> ProcessingOutcome:
+    """Run the authoritative M1 normalization and M2 extraction for one item.
+
+    The online NVD pipeline reuses this exact boundary so it cannot diverge
+    from the legacy streaming M2 behavior.
+    """
     if item.error or item.document is None:
         return classify(
             f"line-{item.line_number}",
