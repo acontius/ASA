@@ -4,12 +4,13 @@
   "title": "ASA Online NVD Assessment JSONL Record",
   "type": "object",
   "required": [
-    "schema_version", "record_id", "processed_at", "record_status", "extraction",
+    "schema_version", "record_id", "source_hash", "processed_at", "record_status", "extraction",
     "cpe_resolution", "cve_retrieval", "applicability_assessments", "summary", "provenance"
   ],
   "properties": {
     "schema_version": {"const": "online-assessment-v1"},
     "record_id": {"type": "string", "minLength": 1},
+    "source_hash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
     "processed_at": {"type": "string", "format": "date-time"},
     "record_status": {"enum": ["processed", "partial_error", "processing_error"]},
     "extraction": {

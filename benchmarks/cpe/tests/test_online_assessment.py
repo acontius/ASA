@@ -121,6 +121,7 @@ class OnlineAssessmentTests(unittest.TestCase):
             row = json.loads(out.read_text(encoding="utf-8").splitlines()[0])
             serialized = out.read_text(encoding="utf-8")
         self.assertEqual(row["schema_version"], "online-assessment-v1")
+        self.assertEqual(len(row["source_hash"]), 64)
         self.assertEqual([x["assessment_status"] for x in row["applicability_assessments"]],
                          ["potentially_affected", "not_applicable", "unknown"])
         self.assertEqual(stats["api_requests"], 2)
