@@ -90,6 +90,19 @@ class NvdResolverTests(unittest.TestCase):
         self.assertEqual(result["nvd_metadata"]["cpe_source"], "nvd_api_2.0")
         self.assertEqual(result["nvd_metadata"]["query_strategy"], "structured_exact")
 
+    def test_unique_lighttpd_candidate_with_inferred_vendor_and_part_requires_review(self):
+        name = "cpe:2.3:a:lighttpd:lighttpd:1.4.29:*:*:*:*:*:*:*"
+        source = candidate(product_name="lighttpd", vendor=None, part=None, version="1.4.29")
+        client = NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([name])))
+
+        result = resolve_candidate_nvd(source, client, CFG)
+
+        self.assertEqual(result["resolution_status"], "review_required")
+        self.assertEqual(result["cpe_name"], name)
+        self.assertEqual(result["nvd_metadata"]["inferred_components"], ["vendor", "part"])
+        self.assertEqual(result["nvd_metadata"]["source_verified_components"], ["product_name", "version"])
+        self.assertEqual(result["nvd_metadata"]["source_observed_components"], ["product_name", "version"])
+
     def test_vendor_product_version_mismatch_not_selected(self):
         variants = ["cpe:2.3:a:other:nginx:1.25.3:*:*:*:*:*:*:*",
                     "cpe:2.3:a:f5:apache:1.25.3:*:*:*:*:*:*:*",
@@ -200,9 +213,10 @@ class NvdResolverTests(unittest.TestCase):
         name = "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*"
         client = NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([name])))
         resolved = resolve_candidate_nvd(extracted, client, CFG)
-        self.assertEqual(resolved["resolution_status"], "exact_match")
+        self.assertEqual(resolved["resolution_status"], "review_required")
         self.assertEqual(resolved["cpe_name"], name)
         self.assertEqual(resolved["nvd_metadata"]["cpe_source"], "nvd_api_2.0")
+        self.assertEqual(resolved["nvd_metadata"]["inferred_components"], ["vendor", "part"])
 
 
 if __name__ == "__main__": unittest.main()

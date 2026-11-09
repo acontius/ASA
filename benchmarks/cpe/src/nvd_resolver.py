@@ -260,7 +260,7 @@ def resolve_candidate_nvd(candidate: dict, client: NvdCpeClient, config: dict[st
                                             if ok is True]
                 source_checks = compare_nvd_cpe_identity(selected["cpe_name"], candidate)["fields"]
                 source_verified = [field for field, ok in source_checks.items() if ok is True]
-                status = "review_required" if identity_derivation or candidate.get("evidence_strength") != "strong" else "exact_match"
+                status = "review_required" if inferred or identity_derivation or candidate.get("evidence_strength") != "strong" else "exact_match"
                 notes_parts = []
                 if inferred: notes_parts.append("unique API candidate supplies unknown components: " + ", ".join(inferred))
                 if identity_derivation: notes_parts.append("GNU prefix decomposition is a deterministic lookup derivation; source identity remains unchanged")
