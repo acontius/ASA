@@ -134,9 +134,11 @@ class NvdApiTests(unittest.TestCase):
 
     def test_proxy_discovery_is_disabled(self):
         from unittest.mock import patch
+        from app.vulnerability.nvd.cpe_client import _NoRedirectHandler
         with patch("urllib.request.getproxies", side_effect=AssertionError("proxy discovery")):
             client = NvdCpeClient(min_interval=0)
         self.assertIsNotNone(client._opener)
+        self.assertIsNone(_NoRedirectHandler().redirect_request(None, None, 302, "redirect", {}, "https://elsewhere.invalid/"))
 
     def test_retries_server_error_and_timeout(self):
         calls = [0]; delays = []
