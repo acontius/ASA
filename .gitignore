@@ -12,6 +12,8 @@ dist/
 # Local benchmark inputs / model weights
 benchmarks/cpe/data/sample.jsonl
 benchmarks/cpe/data/gold.jsonl
+benchmarks/cpe/data/applicability_gold.jsonl
+benchmarks/cpe/data/applicability_manifest.jsonl
 benchmarks/cpe/models/
 benchmarks/cpe/results/*.jsonl
 benchmarks/cpe/results/*.csv

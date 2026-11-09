@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asa.local/benchmarks/cpe/applicability-manifest.schema.json",
+  "title": "ASA CVE Applicability Annotation Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "source_record_id", "source_hash", "asset_snapshot", "cve_snapshot", "sample_strata"],
+  "properties": {
+    "schema_version": {"const": "applicability-manifest-v1"},
+    "case_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source_record_id": {"type": "string", "minLength": 1},
+    "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "asset_snapshot": {"$ref": "#/$defs/asset"},
+    "cve_snapshot": {"$ref": "#/$defs/cve"},
+    "sample_strata": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity_id", "extracted_identity", "cpe23", "resolution_status", "inferred_components", "evidence_paths"],
+      "properties": {
+        "identity_id": {"type": "string", "minLength": 1},
+        "extracted_identity": {"type": ["object", "null"]},
+        "cpe23": {"type": ["string", "null"]},
+        "resolution_status": {"type": "string"},
+        "inferred_components": {"type": "array", "items": {"type": "string"}},
+        "evidence_paths": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["inventory_completeness", "identities", "evidence_paths", "identity_references"],
+      "properties": {
+        "inventory_completeness": {"const": "passive_incomplete"},
+        "identities": {"type": "array", "items": {"$ref": "#/$defs/identity"}},
+        "evidence_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "identity_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "cve": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cve_id", "published", "last_modified", "configurations_hash", "configurations_present", "configurations", "nvd_source", "descriptions", "metrics"],
+      "properties": {
+        "cve_id": {"type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"},
+        "published": {"type": ["string", "null"]},
+        "last_modified": {"type": ["string", "null"]},
+        "configurations_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "configurations_present": {"type": "boolean"},
+        "configurations": {"type": ["array", "null"]},
+        "nvd_source": {"const": "https://services.nvd.nist.gov/rest/json/cves/2.0"},
+        "descriptions": {"type": "array"},
+        "metrics": {"type": "object"}
+      }
+    }
+  }
+}

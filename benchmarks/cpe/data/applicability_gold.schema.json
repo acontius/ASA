@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asa.local/benchmarks/cpe/applicability-gold.schema.json",
+  "title": "ASA Human-reviewed CVE Applicability Gold Case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "source_record_id", "source_hash", "asset_snapshot", "cve_snapshot", "sample_strata", "expected_applicability", "annotation_status", "reviews", "adjudication", "annotation_history"],
+  "properties": {
+    "schema_version": {"const": "applicability-gold-v1"},
+    "case_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "source_record_id": {"type": "string", "minLength": 1},
+    "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "asset_snapshot": {"$ref": "applicability_manifest.schema.json#/$defs/asset"},
+    "cve_snapshot": {"$ref": "applicability_manifest.schema.json#/$defs/cve"},
+    "sample_strata": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "expected_applicability": {"enum": ["true", "false", "unknown", null]},
+    "annotation_status": {"enum": ["unreviewed", "reviewed", "adjudicated", "disputed", "insufficient_evidence", "out_of_scope"]},
+    "reviews": {"type": "array", "items": {"$ref": "#/$defs/review"}},
+    "adjudication": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/adjudication"}]},
+    "annotation_history": {"type": "array", "items": {"$ref": "#/$defs/history"}}
+  },
+  "$defs": {
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reviewer_id", "reviewed_at", "expected_applicability", "reason_codes", "notes", "supporting_evidence_paths", "supporting_identity_ids", "reviewed_configuration_references"],
+      "properties": {
+        "reviewer_id": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "format": "date-time"},
+        "expected_applicability": {"enum": ["true", "false", "unknown", null]},
+        "reason_codes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "notes": {"type": "string"},
+        "supporting_evidence_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "supporting_identity_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "reviewed_configuration_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "adjudication": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adjudicator_id", "adjudicated_at", "expected_applicability", "notes", "reviewed_configuration_references"],
+      "properties": {
+        "adjudicator_id": {"type": "string", "minLength": 1},
+        "adjudicated_at": {"type": "string", "format": "date-time"},
+        "expected_applicability": {"enum": ["true", "false", "unknown"]},
+        "notes": {"type": "string", "minLength": 1},
+        "reviewed_configuration_references": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "history": {
+      "type": "object", "additionalProperties": false,
+      "required": ["saved_at", "actor_id", "action", "expected_applicability", "annotation_status", "reviews", "adjudication"],
+      "properties": {
+        "saved_at": {"type": "string", "format": "date-time"},
+        "actor_id": {"type": "string", "minLength": 1},
+        "action": {"enum": ["review", "non_scored", "adjudicate"]},
+        "expected_applicability": {"enum": ["true", "false", "unknown", null]},
+        "annotation_status": {"enum": ["unreviewed", "reviewed", "adjudicated", "disputed", "insufficient_evidence", "out_of_scope"]},
+        "reviews": {"type": "array", "items": {"$ref": "#/$defs/review"}},
+        "adjudication": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/adjudication"}]}
+      }
+    }
+  }
+}
