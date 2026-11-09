@@ -34,6 +34,7 @@ from benchmarks.cpe.src.nvd_resolver import compare_nvd_cpe_identity, resolve_ca
 from benchmarks.cpe.src.nvd_cve_api import NvdCveClient
 from benchmarks.cpe.src.nvd_cve_runner import retrieve_record_cves
 from benchmarks.cpe.src.cve_applicability import evaluate_cve_applicability
+from app.vulnerability.nvd.scheduler import NvdRequestScheduler
 
 BASE = ROOT / "benchmarks/cpe"
 
@@ -157,6 +158,14 @@ def run(method: str, model: str | None = None, server_url: str | None = None, *,
         raise ValueError("--include-cves requires NVD_API_KEY in the environment or local .env")
     if include_cves and nvd_client.api_key != cve_client.api_key:
         raise ValueError("CPE and CVE clients must use the same NVD_API_KEY configuration")
+    if include_cves:
+        scheduler = NvdRequestScheduler(
+            min_interval=max(float(getattr(nvd_client, "min_interval", 0.7)),
+                             float(getattr(cve_client, "min_interval", 0.7))),
+            max_requests=int(cfg.get("nvd_max_requests_per_run",
+                                     cfg.get("nvd_cve_max_requests_per_run", 50))))
+        nvd_client.scheduler = scheduler
+        cve_client.scheduler = scheduler
     output = []
     for index, (_, sample_row) in enumerate(rows, 1):
         lookup.calls = 0  # budget is per input record
