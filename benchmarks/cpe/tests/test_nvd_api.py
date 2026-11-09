@@ -30,7 +30,7 @@ class FakeResponse:
     def __enter__(self): return self
     def __exit__(self, *args): pass
     def getcode(self): return self.status
-    def read(self): return self.payload
+    def read(self, size=-1): return self.payload if size < 0 else self.payload[:size]
 
 
 class RawResponse(FakeResponse):
@@ -103,6 +103,42 @@ class NvdApiTests(unittest.TestCase):
         client = NvdCpeClient(min_interval=0, max_retries=2, opener=opener, sleeper=delays.append, jitter=lambda: 0)
         result = client.search({"keywordSearch": "nginx"})
         self.assertEqual(delays, [2.0]); self.assertEqual(result.retry_count, 1)
+
+    def test_retry_after_is_bounded(self):
+        delays = []; calls = [0]
+        def opener(*args, **kwargs):
+            calls[0] += 1
+            if calls[0] == 1:
+                headers = Message(); headers["Retry-After"] = "86400"
+                raise urllib.error.HTTPError(ENDPOINT, 429, "limited", headers, None)
+            return FakeResponse(response())
+        NvdCpeClient(min_interval=0, max_retries=1, retry_after_cap=3,
+                     opener=opener, sleeper=delays.append).search({"keywordSearch": "x"})
+        self.assertEqual(delays, [3.0])
+
+    def test_oversized_response_is_rejected(self):
+        client = NvdCpeClient(min_interval=0, max_response_bytes=10,
+                              opener=lambda *a, **k: RawResponse(b"x" * 11))
+        with self.assertRaises(NvdApiError) as caught:
+            client.search({"keywordSearch": "x"})
+        self.assertEqual(caught.exception.category, "response_too_large")
+
+    def test_per_run_response_limit_is_enforced(self):
+        client = NvdCpeClient(min_interval=0, max_response_bytes=1024,
+                              max_response_bytes_per_run=5,
+                              opener=lambda *a, **k: RawResponse(b"123456"))
+        with self.assertRaises(NvdApiError) as caught:
+            client.search({"keywordSearch": "x"})
+        self.assertEqual(caught.exception.category, "response_too_large")
+        self.assertEqual(client.response_bytes, 6)
+
+    def test_proxy_discovery_is_disabled(self):
+        from unittest.mock import patch
+        from app.vulnerability.nvd.cpe_client import _NoRedirectHandler
+        with patch("urllib.request.getproxies", side_effect=AssertionError("proxy discovery")):
+            client = NvdCpeClient(min_interval=0)
+        self.assertIsNotNone(client._opener)
+        self.assertIsNone(_NoRedirectHandler().redirect_request(None, None, 302, "redirect", {}, "https://elsewhere.invalid/"))
 
     def test_retries_server_error_and_timeout(self):
         calls = [0]; delays = []

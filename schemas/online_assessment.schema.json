@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/acontius/ASA/schemas/online_assessment.schema.json",
+  "title": "ASA Online NVD Assessment JSONL Record",
+  "type": "object",
+  "required": [
+    "schema_version", "record_id", "processed_at", "record_status", "extraction",
+    "cpe_resolution", "cve_retrieval", "applicability_assessments", "summary", "provenance"
+  ],
+  "properties": {
+    "schema_version": {"const": "online-assessment-v1"},
+    "record_id": {"type": "string", "minLength": 1},
+    "processed_at": {"type": "string", "format": "date-time"},
+    "record_status": {"enum": ["processed", "partial_error", "processing_error"]},
+    "extraction": {
+      "type": "object",
+      "required": ["outcome", "identities"],
+      "properties": {
+        "outcome": {"type": "string"},
+        "identities": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+      }
+    },
+    "cpe_resolution": {
+      "type": "object",
+      "required": ["source", "endpoint", "identities", "request_count"],
+      "properties": {
+        "source": {"const": "nvd_api_2.0"},
+        "endpoint": {"const": "https://services.nvd.nist.gov/rest/json/cpes/2.0"},
+        "identities": {"type": "array", "items": {"type": "object"}},
+        "request_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "cve_retrieval": {
+      "type": "object",
+      "required": ["source", "api_endpoint", "identities", "cves", "request_count"],
+      "properties": {
+        "source": {"const": "nvd_cve_api_2.0"},
+        "api_endpoint": {"const": "https://services.nvd.nist.gov/rest/json/cves/2.0"},
+        "identities": {"type": "array", "items": {"type": "object"}},
+        "cves": {"type": "array", "items": {"type": "object"}},
+        "request_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "applicability_assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cve_id", "logic_value", "assessment_status", "source_record_id", "evaluation_trace"],
+        "properties": {
+          "cve_id": {"type": ["string", "null"]},
+          "logic_value": {"enum": ["true", "false", "unknown"]},
+          "assessment_status": {"enum": ["potentially_affected", "not_applicable", "unknown"]},
+          "source_record_id": {"type": "string"},
+          "evaluation_trace": {"type": "object"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["exact_cpe_count", "cve_count", "potentially_affected_count", "not_applicable_count", "unknown_count"],
+      "properties": {
+        "exact_cpe_count": {"type": "integer", "minimum": 0},
+        "cve_count": {"type": "integer", "minimum": 0},
+        "potentially_affected_count": {"type": "integer", "minimum": 0},
+        "not_applicable_count": {"type": "integer", "minimum": 0},
+        "unknown_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["cpe_source", "cve_source", "cpe_endpoint", "cve_endpoint", "api_key_configured", "shared_request_budget"],
+      "properties": {
+        "cpe_source": {"const": "nvd_api_2.0"},
+        "cve_source": {"const": "nvd_cve_api_2.0"},
+        "cpe_endpoint": {"const": "https://services.nvd.nist.gov/rest/json/cpes/2.0"},
+        "cve_endpoint": {"const": "https://services.nvd.nist.gov/rest/json/cves/2.0"},
+        "api_key_configured": {"const": true},
+        "shared_request_budget": {"type": "object"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "required": ["identity_id", "product", "evidence_paths", "evidence_strength", "extraction_status"],
+      "properties": {
+        "identity_id": {"type": "string"},
+        "product": {"type": ["string", "null"]},
+        "vendor": {"type": ["string", "null"]},
+        "version": {"type": ["string", "null"]},
+        "update": {"type": ["string", "null"]},
+        "part": {"type": ["string", "null"]},
+        "evidence_paths": {"type": "array", "items": {"type": "string"}},
+        "evidence_strength": {"type": ["string", "null"]},
+        "extraction_status": {"const": "extracted"}
+      }
+    }
+  },
+  "additionalProperties": true
+}

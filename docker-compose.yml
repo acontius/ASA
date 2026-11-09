@@ -4,6 +4,8 @@ services:
       context: .
       target: runtime
     image: asa:local
+    environment:
+      NVD_API_KEY: ${NVD_API_KEY:-}
     init: true
     read_only: true
     tmpfs:
