@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASA Applicability Gold Review</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <header><div><strong>ASA Applicability Gold</strong><span class="tag">127.0.0.1 only</span></div><span id="integrity" class="muted">Loading local manifest…</span></header>
+  <main>
+    <aside class="cases">
+      <div class="filters"><input id="search" placeholder="case, asset, or CVE" maxlength="160"><select id="filter"><option value="pending">Pending</option><option value="all">All</option><option>reviewed</option><option>adjudicated</option><option>disputed</option><option>insufficient_evidence</option><option>out_of_scope</option><option>stale</option></select></div>
+      <div id="caseList"></div>
+    </aside>
+    <section class="review">
+      <h1 id="title">Select a case</h1>
+      <div id="stale" class="warning hidden"></div>
+      <div class="grid">
+        <article><h2>Asset evidence</h2><div id="evidence"></div><h3>Software inventory</h3><pre id="identities">Select a case.</pre></article>
+        <article><h2>CVE record</h2><div id="cveMeta"></div><h3>Original NVD configurations</h3><pre id="configurations"></pre></article>
+      </div>
+      <details><summary>Prior independent reviews and adjudication</summary><pre id="priorReviews">None</pre></details>
+      <form id="form">
+        <h2>Independent human review</h2>
+        <p class="notice">Choose a label from evidence and NVD conditions. The ASA prediction is intentionally hidden.</p>
+        <div class="fields">
+          <label>Action<select id="action"><option value="review">Submit independent review</option><option value="non_scored">Mark insufficient evidence / out of scope</option><option value="adjudicate">Adjudicate two or more reviews</option></select></label>
+          <label>Reviewer / adjudicator ID<input id="actor" required maxlength="120"></label>
+          <label>Expected applicability<select id="label"><option value="">Choose…</option><option value="true">TRUE</option><option value="false">FALSE</option><option value="unknown">UNKNOWN</option></select></label>
+          <label id="nonScoredWrap" class="hidden">Non-scored status<select id="nonScored"><option value="insufficient_evidence">Insufficient evidence</option><option value="out_of_scope">Out of scope</option></select></label>
+          <label class="wide">Reason codes (comma-separated)<input id="reasons" placeholder="version_in_range, os_prerequisite_met"></label>
+          <label class="wide">Reviewer notes<textarea id="notes" rows="3" maxlength="5000"></textarea></label>
+          <label class="wide">Reviewed NVD configuration references (one path per line)<textarea id="configRefs" rows="3" placeholder="configurations[0].nodes[0].cpeMatch[0]"></textarea></label>
+        </div>
+        <div><strong>Supporting asset evidence paths</strong><div id="evidenceChoices"></div></div>
+        <div><strong>Supporting identity IDs</strong><div id="identityChoices"></div></div>
+        <button id="save" type="submit">Save independent annotation</button><span id="message" role="status"></span>
+      </form>
+    </section>
+  </main>
+</body>
+</html>
