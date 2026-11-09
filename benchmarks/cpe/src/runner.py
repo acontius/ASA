@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from contextlib import closing
 import json
 import os
@@ -12,6 +13,8 @@ import statistics
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
+from uuid import uuid4
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +29,8 @@ from app.cpe.parser import parse_cpe23
 from app.cpe.resolver import resolve_candidate
 from benchmarks.cpe.src.identity import compare_cpe_identity
 from benchmarks.cpe.src.gold import canonical_source_hash
+from benchmarks.cpe.src.nvd_api import NvdCpeClient
+from benchmarks.cpe.src.nvd_resolver import compare_nvd_cpe_identity, resolve_candidate_nvd
 
 BASE = ROOT / "benchmarks/cpe"
 
@@ -44,7 +49,11 @@ def cpe_identity_matches(cpe_name: str, identity: dict) -> bool:
 
 def _final_resolution(candidate: dict, resolution: dict, kind: str = "m3") -> dict:
     cpe_name = resolution.get("cpe_name")
-    validation = compare_cpe_identity(cpe_name, _identity(candidate)) if cpe_name else {"valid": None, "fields": {}}
+    if cpe_name:
+        validation = (compare_nvd_cpe_identity(cpe_name, _identity(candidate)) if kind == "nvd_api_2.0"
+                      else compare_cpe_identity(cpe_name, _identity(candidate)))
+    else:
+        validation = {"valid": None, "fields": {}}
     return {
         "candidate_id": candidate.get("candidate_id"),
         "source_path": candidate.get("source_path"),
@@ -56,6 +65,9 @@ def _final_resolution(candidate: dict, resolution: dict, kind: str = "m3") -> di
         "identity_validation": validation["fields"],
         "resolution_kind": kind,
         "notes": resolution.get("notes"),
+        **({"nvd_metadata": resolution["nvd_metadata"]} if resolution.get("nvd_metadata") else {}),
+        **({"nvd_candidate": resolution["nvd_candidate"]} if resolution.get("nvd_candidate") else {}),
+        **({"candidates": resolution["candidates"]} if resolution.get("candidates") is not None else {}),
         **({"competing": resolution["competing"]} if resolution.get("competing") else {}),
     }
 
@@ -69,13 +81,13 @@ def _single_prediction(candidates: list[dict]) -> dict:
             "explanation": "multiple_extractions_preserved_without_aggregation" if candidates else "no_candidate"}
 
 
-def _deterministic_contract(candidates: list[dict], resolutions: list[dict]) -> tuple[list[dict], list[dict]]:
+def _deterministic_contract(candidates: list[dict], resolutions: list[dict], kind: str = "m3") -> tuple[list[dict], list[dict]]:
     if candidates and not resolutions:
         resolutions = [{"candidate_id": c.get("candidate_id"), "resolution_status": "unavailable", "resolution_basis": "dictionary_unavailable", "notes": "local M3 dictionary was not available"} for c in candidates]
     if len(candidates) != len(resolutions):
         raise ValueError("each M2 candidate must have exactly one M3 resolution")
     extractions = [{**_identity(c), "candidate_id": c.get("candidate_id"), "source_path": c.get("source_path"), "evidence_paths": [c.get("source_path")] if c.get("source_path") else [], "abstain": False} for c in candidates]
-    final_resolutions = [_final_resolution(c, r) for c, r in zip(candidates, resolutions, strict=True)]
+    final_resolutions = [_final_resolution(c, r, kind=kind) for c, r in zip(candidates, resolutions, strict=True)]
     return extractions, final_resolutions
 
 
@@ -103,9 +115,15 @@ def _resolve_direct_identity(parsed: dict | None, record_id: str, db_path: Path)
 def config(): return json.loads((BASE / "config/benchmark.json").read_text())
 
 
-def run(method: str, model: str | None = None, server_url: str | None = None, *, records: list[dict] | None = None, output_path: str | Path | None = None, progress_callback=None):
+def run(method: str, model: str | None = None, server_url: str | None = None, *, records: list[dict] | None = None, sample_path_override: str | Path | None = None, output_path: str | Path | None = None, progress_callback=None, limit: int | None = None):
     cfg = config(); sample_path = ROOT / cfg["sample"]
     results_dir = BASE / "results"
+    if sample_path_override is not None:
+        if records is not None:
+            raise ValueError("sample path and in-memory records are mutually exclusive")
+        sample_path = Path(sample_path_override).resolve()
+        if not sample_path.is_relative_to(results_dir.resolve()) or sample_path.suffix != ".jsonl":
+            raise ValueError("custom samples must be JSONL files inside benchmarks/cpe/results")
     if output_path is not None:
         requested_output = Path(output_path)
         if requested_output.resolve().parent != results_dir.resolve():
@@ -117,16 +135,14 @@ def run(method: str, model: str | None = None, server_url: str | None = None, *,
         rows = list(iter_jsonl(sample_path))
     else:
         rows = list(enumerate(records, 1))
+    if limit is not None:
+        if limit < 1: raise ValueError("record limit must be positive")
+        rows = rows[:limit]
     db_path = ROOT / cfg["dictionary_db"]
-    lookup = ReadOnlyCpeLookup(str(db_path), str(ROOT / cfg["dictionary_chunks"]), cfg["max_tool_calls"])
+    lookup = (ReadOnlyCpeLookup(str(db_path), str(ROOT / cfg["dictionary_chunks"]), cfg["max_tool_calls"])
+              if method != "deterministic" else ReadOnlyCpeLookup(max_calls=cfg["max_tool_calls"]))
     db = None
-    if method == "deterministic" and db_path.exists():
-        db = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)
-        db.row_factory = sqlite3.Row
-        meta = db.execute("SELECT schema_version FROM dictionary_metadata WHERE id=1").fetchone()
-        if meta is None or meta["schema_version"] != "2.0":
-            db.close()
-            raise SystemExit("local CPE database is not an M3 schema 2.0 dictionary")
+    nvd_client = NvdCpeClient.from_config(cfg) if method == "deterministic" else None
     output = []
     for index, (_, sample_row) in enumerate(rows, 1):
         lookup.calls = 0  # budget is per input record
@@ -135,12 +151,15 @@ def run(method: str, model: str | None = None, server_url: str | None = None, *,
         if method == "deterministic":
             started = time.perf_counter()
             try:
-                result = process(raw, recid, index, db)
+                requests_before = nvd_client.request_count
+                result = process(raw, recid, index)
                 candidates = result["outcome"]["candidates"]
-                extractions, final_resolutions = _deterministic_contract(candidates, result["candidate_resolutions"])
+                resolutions = [resolve_candidate_nvd(candidate, nvd_client, cfg) for candidate in candidates]
+                extractions, final_resolutions = _deterministic_contract(candidates, resolutions, kind="nvd_api_2.0")
                 prediction = _single_prediction(extractions)
-                base.update({"prediction": prediction, "extraction_prediction": prediction, "extraction_predictions": extractions, "final_cpe_resolutions": final_resolutions, "dictionary_cpes": [x["cpe23"] for x in final_resolutions if x.get("cpe23")], "evaluation_track": "extraction_only+end_to_end_cpe", "latency_seconds": time.perf_counter()-started, "schema_valid": True, "invalid_json": False, "status": "ok", "outcome": result["outcome"]["outcome"]})
-            except Exception as exc: base.update({"prediction": None, "status": "error", "error": type(exc).__name__, "latency_seconds": time.perf_counter()-started})
+                api_failures = [r for r in resolutions if r.get("resolution_status") in {"api_unavailable", "api_invalid_response", "incomplete_lookup"}]
+                base.update({"prediction": prediction, "extraction_prediction": prediction, "extraction_predictions": extractions, "candidate_resolutions": resolutions, "final_cpe_resolutions": final_resolutions, "dictionary_cpes": [x["cpe23"] for x in final_resolutions if x.get("cpe23")], "evaluation_track": "extraction_only+end_to_end_cpe", "cpe_source": "nvd_api_2.0", "api_endpoint": nvd_client.endpoint, "api_key_configured": bool(nvd_client.api_key), "rate_limit_mode": "api_key" if nvd_client.api_key else "public", "api_requests": nvd_client.request_count-requests_before, "schema_valid": True, "invalid_json": False, "status": "error" if api_failures else "ok", "error": "nvd_lookup_incomplete_or_unavailable" if api_failures else None, "latency_seconds": time.perf_counter()-started, "outcome": result["outcome"]["outcome"]})
+            except Exception as exc: base.update({"prediction": None, "cpe_source": "nvd_api_2.0", "api_endpoint": nvd_client.endpoint, "api_key_configured": bool(nvd_client.api_key), "rate_limit_mode": "api_key" if nvd_client.api_key else "public", "status": "error", "error": f"{type(exc).__name__}: {exc}", "latency_seconds": time.perf_counter()-started})
         elif method == "llm":
             response = call_local(raw, model or "asa-local", server_url or cfg["server_url"], cfg["max_output_tokens"])
             parsed, parse_error, parsed_schema = validate_output(response.pop("raw_response", ""))
@@ -176,13 +195,19 @@ def run(method: str, model: str | None = None, server_url: str | None = None, *,
     if db: db.close()
     lookup.close()
     results_dir.mkdir(exist_ok=True)
-    target = Path(output_path) if output_path is not None else results_dir / f"{method}-{model or 'none'}.jsonl"
+    target = Path(output_path) if output_path is not None else results_dir / (
+        f"deterministic-nvd_api_2.0-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:8]}.jsonl"
+        if method == "deterministic" else f"{method}-{model or 'none'}.jsonl")
     if target.resolve().parent != results_dir.resolve():
         raise ValueError("custom benchmark outputs must be directly inside benchmarks/cpe/results")
-    mode = "x" if output_path is not None else "w"
-    with target.open(mode, encoding="utf-8") as f:
+    with target.open("x", encoding="utf-8") as f:
         for row in output: f.write(serialize_result(row) + "\n")
+    global LAST_OUTPUT_PATH
+    LAST_OUTPUT_PATH = target
     return output
+
+
+LAST_OUTPUT_PATH: Path | None = None
 
 
 def hardware():
@@ -200,6 +225,8 @@ def main():
     parser.add_argument("--model")
     parser.add_argument("--server-url")
     parser.add_argument("--size", type=int)
+    parser.add_argument("--limit", type=int, help="process only the first N sample records (useful for a small live smoke test)")
+    parser.add_argument("--sample", help="use a prepared JSONL sample inside benchmarks/cpe/results")
     args = parser.parse_args(); cfg = config()
     if args.prepare:
         created = sample(ROOT / cfg["input"], ROOT / cfg["sample"], args.size or cfg["sample_size"], cfg["seed"])
@@ -211,15 +238,29 @@ def main():
         print(json.dumps({"sample_records": len(created), "sample": str(ROOT / cfg["sample"]), "gold_ready": gold.stat().st_size > 0, "malformed_or_multiline_physical_lines_skipped": physical-parsed, "sample_protocols": protocols, "protocols_without_parseable_records": sorted(set(("ssh", "http", "ftp", "mongodb"))-set(protocols)), "m2_outcome_strata": outcomes}, indent=2)); return
     if not args.method: parser.error("choose --prepare or --method")
     run_start = time.perf_counter()
-    rows = run(args.method, args.model, args.server_url)
+    rows = run(args.method, args.model, args.server_url, sample_path_override=args.sample, limit=args.limit)
     total_runtime = time.perf_counter() - run_start
-    gold_lookup = ReadOnlyCpeLookup(str(ROOT / cfg["dictionary_db"]), str(ROOT / cfg["dictionary_chunks"]))
-    gold, gold_errors = load_reviewed_gold(BASE / "data/gold.jsonl", gold_lookup) if (BASE / "data/gold.jsonl").exists() else ({}, [])
-    gold_lookup.close()
+    if args.method == "deterministic":
+        # The NVD-backed resolver must not open or consult the legacy local dictionary.
+        gold, gold_errors = load_reviewed_gold(BASE / "data/gold.jsonl") if (BASE / "data/gold.jsonl").exists() else ({}, [])
+    else:
+        gold_lookup = ReadOnlyCpeLookup(str(ROOT / cfg["dictionary_db"]), str(ROOT / cfg["dictionary_chunks"]))
+        gold, gold_errors = load_reviewed_gold(BASE / "data/gold.jsonl", gold_lookup) if (BASE / "data/gold.jsonl").exists() else ({}, [])
+        gold_lookup.close()
     summary = evaluate(rows, gold)
     successful_latencies=[r.get("latency_seconds") for r in rows if r.get("status")=="ok" and isinstance(r.get("latency_seconds"),(int,float))]
     summary.update({"gold_label_errors": gold_errors, "method": args.method, "model": args.model or "N/A", "records": len(rows), "total_runtime_seconds": total_runtime, "throughput_records_per_second": len(rows)/total_runtime if total_runtime else None, "latency_mean": statistics.mean(successful_latencies) if successful_latencies else None, "latency_stdev": statistics.pstdev(successful_latencies) if len(successful_latencies)>1 else None, "latency_p50": percentile(successful_latencies, .5), "latency_p95": percentile(successful_latencies, .95), "peak_rss_kb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, "model_calls": sum(r.get("model_calls", 0) for r in rows), "tool_calls": sum(r.get("tool_calls", 0) for r in rows), "python": platform.python_version()})
-    with (BASE / "results" / f"{args.method}-{args.model or 'none'}.summary.json").open("w") as f: json.dump(summary, f, indent=2)
+    summary_target = (LAST_OUTPUT_PATH.with_suffix(".summary.json") if LAST_OUTPUT_PATH else BASE / "results" / f"{args.method}-{args.model or 'none'}.summary.json")
+    if args.method == "deterministic":
+        api_key_configured = bool(NvdCpeClient.from_config(cfg).api_key)
+        summary.update({"cpe_source": "nvd_api_2.0", "nvd_api_requests": sum(row.get("api_requests", 0) for row in rows),
+                        "nvd_resolution_statuses": dict(Counter(
+                            resolution.get("resolution_status") for row in rows
+                            for resolution in row.get("candidate_resolutions", []) if resolution.get("resolution_status"))),
+                        "api_key_configured": api_key_configured,
+                        "rate_limit_mode": "api_key" if api_key_configured else "public",
+                        "results_file": str(LAST_OUTPUT_PATH), "summary_file": str(summary_target)})
+    with summary_target.open("x", encoding="utf-8") as f: json.dump(summary, f, indent=2)
     print(json.dumps(summary, indent=2))
 
 
