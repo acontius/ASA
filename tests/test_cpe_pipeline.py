@@ -99,7 +99,8 @@ class TestCpePipeline(unittest.TestCase):
             hit = row["candidate_resolutions"][0]
             self.assertEqual(hit["resolution_status"], "exact_match")
             self.assertEqual(hit["product"], "openssh")
-            self.assertEqual(hit["version"], "9.6p1")
+            self.assertEqual(hit["version"], "9.6")
+            self.assertIn(":9.6:p1:", hit["cpe_name"])
             self.assertEqual(hit["vendor"], "openbsd")
             self.assertEqual(hit["part"], "a")
             self.assertTrue(hit["normalized_record_id"])
