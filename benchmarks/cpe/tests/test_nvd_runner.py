@@ -25,7 +25,7 @@ class NvdRunnerTests(unittest.TestCase):
         raw = {"_source": {"id": "synthetic-ssh", "ip": "192.0.2.1", "scanTime": "2026-01-01T00:00:00Z",
                             "proto": "ssh", "port": "t22", "appId": "test", "path": "/synthetic",
                             "t22": {"ssh": {"result": {"server_id": {"software": "OpenSSH_9.6p1"}}}}}}
-        cpe = "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*"
+        cpe = "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*"
         body = {"resultsPerPage": 1, "startIndex": 0, "totalResults": 1, "format": "NVD_CPE", "version": "2.0",
                 "timestamp": "2026-11-08T00:00:00Z", "products": [{"cpe": {"cpeName": cpe,
                 "cpeNameId": str(uuid4()), "deprecated": False, "deprecatedBy": [], "titles": [], "refs": []}}]}
@@ -89,7 +89,7 @@ class NvdRunnerTests(unittest.TestCase):
                  patch.object(runner.NvdCpeClient, "from_config", return_value=CpeClient()), \
                  patch.object(runner.NvdCveClient, "from_config", return_value=cve), \
                  patch.object(runner, "resolve_candidate_nvd", return_value={"resolution_status": "exact_match",
-                    "resolution_basis": "exact", "cpe_name": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*",
+                    "resolution_basis": "exact", "cpe_name": "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*",
                     "nvd_metadata": {"deprecated": False}}):
                 rows = runner.run("deterministic", records=[record], output_path=out, include_cves=True,
                                   evaluate_applicability=True)

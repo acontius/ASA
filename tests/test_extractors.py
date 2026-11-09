@@ -70,6 +70,17 @@ class TestHTTP(unittest.TestCase):
         self.assertEqual(found[0]["evidence_strength"], "weak")
         self.assertEqual(found[0]["raw_value"], "WAF")
 
+    def test_generic_web_server_tokens_are_not_software_identities(self):
+        for value in ("Web/0.9", "WebServer 1.0"):
+            with self.subTest(value=value):
+                doc = load_fixture("http")
+                doc["_source"]["t80"]["http"]["result"]["response"]["headers"] = {"server": value}
+                record = normalize(doc, line_number=1, byte_offset=0)
+                found = extract_http(record, record["port_blocks"][0])
+                self.assertEqual(found[0]["evidence_strength"], "weak")
+                self.assertIsNone(found[0]["version"])
+                self.assertNotEqual(found[0]["product_name"], "Web")
+
     def test_redirect_chain_when_final_is_generic(self):
         doc = load_fixture("http")
         doc["_source"]["t80"]["http"]["result"]["response"]["headers"] = {"server": "WAF"}
