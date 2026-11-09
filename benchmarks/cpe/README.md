@@ -1,5 +1,7 @@
 # ASA CPE extraction benchmark
 
+Independent human-reviewed CVE applicability Gold, sampling, local annotation, validation, and reporting are documented in [CVE_APPLICABILITY_GOLD.md](CVE_APPLICABILITY_GOLD.md). These applicability metrics are separate from Gold v2 extraction/CPE metrics.
+
 The benchmark reuses ASA's M2 normalizer/extractors and M3 resolver without changing production M1–M4 behavior. Its methods are `deterministic`, `llm` (local Direct extraction plus shared M3), and `agent` (local tool-using Agent). RAG is not implemented. Smoke runs call the existing runner; they do not download models or fall back to remote inference.
 
 ## Gold Dataset v2
