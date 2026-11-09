@@ -13,6 +13,7 @@ dist/
 benchmarks/cpe/data/sample.jsonl
 benchmarks/cpe/data/gold.jsonl
 benchmarks/cpe/models/
+benchmarks/cpe/data/local/
 benchmarks/cpe/results/*.jsonl
 benchmarks/cpe/results/*.csv
 benchmarks/cpe/results/*.md
