@@ -30,6 +30,7 @@ def candidate(
     extractor_id: str,
     evidence_strength: str,
     version: str | None = None,
+    update: str | None = None,
     evidence_refs: Iterable[str] | None = None,
 ) -> ExtractionCandidate:
     refs = list(evidence_refs or [])
@@ -38,7 +39,7 @@ def candidate(
         "product_name": product_name,
         "vendor": None,
         "version": version,
-        "update": None,
+        "update": update,
         "part": None,
         "source_path": source_path,
         "raw_value": raw_value,
