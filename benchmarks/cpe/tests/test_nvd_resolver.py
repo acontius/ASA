@@ -269,7 +269,12 @@ class NvdResolverTests(unittest.TestCase):
         m2 = process(raw, "synthetic-ssh", 1)
         self.assertEqual(len(m2["outcome"]["candidates"]), 1)
         extracted = m2["outcome"]["candidates"][0]
-        self.assertEqual((extracted["product_name"], extracted["version"]), ("OpenSSH", "9.6p1"))
+        # M2 now splits portable OpenSSH at extraction: version=9.6, update=p1
+        self.assertEqual(
+            (extracted["product_name"], extracted["version"], extracted["update"]),
+            ("OpenSSH", "9.6", "p1"),
+        )
+        self.assertEqual(extracted["raw_value"], "OpenSSH_9.6p1")
         name = "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*"
         client = NvdCpeClient(min_interval=0, opener=lambda *a, **k: Response(doc([name])))
         resolved = resolve_candidate_nvd(extracted, client, CFG)
@@ -277,6 +282,27 @@ class NvdResolverTests(unittest.TestCase):
         self.assertEqual(resolved["cpe_name"], name)
         self.assertEqual(resolved["nvd_metadata"]["cpe_source"], "nvd_api_2.0")
         self.assertEqual(resolved["nvd_metadata"]["inferred_components"], ["vendor", "part"])
+        # update was observed at M2; downstream must not re-derive it
+        self.assertNotIn("update", resolved["nvd_metadata"]["inferred_components"])
+        self.assertNotIn("identity_derivation", resolved["nvd_metadata"])
+        self.assertIn("update", resolved["nvd_metadata"]["source_observed_components"])
+        self.assertIn("update", resolved["nvd_metadata"]["source_verified_components"])
+        comparison = compare_nvd_cpe_identity(name, {
+            "product_name": extracted["product_name"],
+            "vendor": extracted["vendor"],
+            "version": extracted["version"],
+            "update": extracted["update"],
+            "part": extracted["part"],
+        })
+        self.assertTrue(comparison["fields"]["update"])
+        self.assertTrue(comparison["fields"]["version"])
+        self.assertTrue(comparison["valid"])
+        # Legacy combined form must still fail the identity comparison
+        legacy = compare_nvd_cpe_identity(name, {
+            "product_name": "OpenSSH", "version": "9.6p1", "update": None,
+        })
+        self.assertIs(legacy["fields"]["update"], False)
+        self.assertFalse(legacy["valid"])
 
 
 if __name__ == "__main__": unittest.main()
