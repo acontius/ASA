@@ -34,6 +34,13 @@ def resolution(identity, status="exact_match", **extra):
 
 
 class NvdCveRunnerTests(unittest.TestCase):
+    def test_applicability_cli_flags_are_guarded_before_any_network_setup(self):
+        from benchmarks.cpe.src.runner import run
+        with self.assertRaisesRegex(ValueError, "requires --include-cves"):
+            run("deterministic", evaluate_applicability=True)
+        with self.assertRaisesRegex(ValueError, "only with --method deterministic"):
+            run("agent", include_cves=True, evaluate_applicability=True)
+
     def test_exact_queries_and_uncertain_identities_are_skipped(self):
         client = FakeClient()
         rows = [resolution("one"), resolution("lighttpd", "review_required", cpe23=LIGHTTPD,

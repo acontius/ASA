@@ -64,11 +64,11 @@ class NvdRunnerTests(unittest.TestCase):
         record = {"record_id": "synthetic-ssh", "raw": raw, "protocol": "ssh"}
         class CpeClient:
             endpoint = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
-            api_key = None
+            api_key = "test-key"
             request_count = 0
         class CveClient:
             endpoint = "https://services.nvd.nist.gov/rest/json/cves/2.0"
-            api_key = None
+            api_key = "test-key"
             request_count = 0
             cache_hits = 0
             def fetch_by_cpe(self, name, *, max_requests):
@@ -91,11 +91,25 @@ class NvdRunnerTests(unittest.TestCase):
                  patch.object(runner, "resolve_candidate_nvd", return_value={"resolution_status": "exact_match",
                     "resolution_basis": "exact", "cpe_name": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*",
                     "nvd_metadata": {"deprecated": False}}):
-                rows = runner.run("deterministic", records=[record], output_path=out, include_cves=True)
+                rows = runner.run("deterministic", records=[record], output_path=out, include_cves=True,
+                                  evaluate_applicability=True)
             self.assertEqual(cve.request_count, 1)
             retrieval = rows[0]["cve_retrieval"]
             self.assertEqual(retrieval["identities"][0]["retrieval_status"], "retrieved")
             self.assertEqual(retrieval["cves"][0]["cve"]["id"], "CVE-2025-1234")
+            self.assertEqual(rows[0]["cve_applicability"]["evaluations"][0]["assessment_status"], "unknown")
+            self.assertEqual(cve.request_count, 1)  # pure evaluator makes no additional API calls
+            self.assertNotIn("test-key", out.read_text(encoding="utf-8"))
+
+    def test_online_cve_path_requires_api_key(self):
+        class Client:
+            endpoint = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
+            api_key = None
+        with patch.object(runner.NvdCpeClient, "from_config", return_value=Client()), \
+             patch.object(runner.NvdCveClient, "from_config") as cve_factory:
+            cve_factory.return_value = type("Cve", (), {"api_key": None})()
+            with self.assertRaisesRegex(ValueError, "requires NVD_API_KEY"):
+                runner.run("deterministic", include_cves=True, records=[])
 
     def test_custom_sample_must_be_inside_benchmark_results(self):
         with tempfile.TemporaryDirectory() as temp:
