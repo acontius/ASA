@@ -31,6 +31,8 @@ from benchmarks.cpe.src.identity import compare_cpe_identity
 from benchmarks.cpe.src.gold import canonical_source_hash
 from benchmarks.cpe.src.nvd_api import NvdCpeClient
 from benchmarks.cpe.src.nvd_resolver import compare_nvd_cpe_identity, resolve_candidate_nvd
+from benchmarks.cpe.src.nvd_cve_api import NvdCveClient
+from benchmarks.cpe.src.nvd_cve_runner import retrieve_record_cves
 
 BASE = ROOT / "benchmarks/cpe"
 
@@ -115,7 +117,9 @@ def _resolve_direct_identity(parsed: dict | None, record_id: str, db_path: Path)
 def config(): return json.loads((BASE / "config/benchmark.json").read_text())
 
 
-def run(method: str, model: str | None = None, server_url: str | None = None, *, records: list[dict] | None = None, sample_path_override: str | Path | None = None, output_path: str | Path | None = None, progress_callback=None, limit: int | None = None):
+def run(method: str, model: str | None = None, server_url: str | None = None, *, records: list[dict] | None = None, sample_path_override: str | Path | None = None, output_path: str | Path | None = None, progress_callback=None, limit: int | None = None, include_cves: bool = False):
+    if include_cves and method != "deterministic":
+        raise ValueError("--include-cves is supported only with --method deterministic")
     cfg = config(); sample_path = ROOT / cfg["sample"]
     results_dir = BASE / "results"
     if sample_path_override is not None:
@@ -143,6 +147,7 @@ def run(method: str, model: str | None = None, server_url: str | None = None, *,
               if method != "deterministic" else ReadOnlyCpeLookup(max_calls=cfg["max_tool_calls"]))
     db = None
     nvd_client = NvdCpeClient.from_config(cfg) if method == "deterministic" else None
+    cve_client = NvdCveClient.from_config(cfg) if include_cves else None
     output = []
     for index, (_, sample_row) in enumerate(rows, 1):
         lookup.calls = 0  # budget is per input record
@@ -159,6 +164,9 @@ def run(method: str, model: str | None = None, server_url: str | None = None, *,
                 prediction = _single_prediction(extractions)
                 api_failures = [r for r in resolutions if r.get("resolution_status") in {"api_unavailable", "api_invalid_response", "incomplete_lookup"}]
                 base.update({"prediction": prediction, "extraction_prediction": prediction, "extraction_predictions": extractions, "candidate_resolutions": resolutions, "final_cpe_resolutions": final_resolutions, "dictionary_cpes": [x["cpe23"] for x in final_resolutions if x.get("cpe23")], "evaluation_track": "extraction_only+end_to_end_cpe", "cpe_source": "nvd_api_2.0", "api_endpoint": nvd_client.endpoint, "api_key_configured": bool(nvd_client.api_key), "rate_limit_mode": "api_key" if nvd_client.api_key else "public", "api_requests": nvd_client.request_count-requests_before, "schema_valid": True, "invalid_json": False, "status": "error" if api_failures else "ok", "error": "nvd_lookup_incomplete_or_unavailable" if api_failures else None, "latency_seconds": time.perf_counter()-started, "outcome": result["outcome"]["outcome"]})
+                if cve_client is not None:
+                    base["cve_retrieval"] = retrieve_record_cves(recid, final_resolutions, cve_client,
+                        max_requests_per_identity=cfg.get("nvd_cve_max_requests_per_identity", 5))
             except Exception as exc: base.update({"prediction": None, "cpe_source": "nvd_api_2.0", "api_endpoint": nvd_client.endpoint, "api_key_configured": bool(nvd_client.api_key), "rate_limit_mode": "api_key" if nvd_client.api_key else "public", "status": "error", "error": f"{type(exc).__name__}: {exc}", "latency_seconds": time.perf_counter()-started})
         elif method == "llm":
             response = call_local(raw, model or "asa-local", server_url or cfg["server_url"], cfg["max_output_tokens"])
@@ -227,7 +235,10 @@ def main():
     parser.add_argument("--size", type=int)
     parser.add_argument("--limit", type=int, help="process only the first N sample records (useful for a small live smoke test)")
     parser.add_argument("--sample", help="use a prepared JSONL sample inside benchmarks/cpe/results")
+    parser.add_argument("--include-cves", action="store_true", help="retrieve CVEs for exact deterministic NVD CPEs")
     args = parser.parse_args(); cfg = config()
+    if args.include_cves and args.method != "deterministic":
+        parser.error("--include-cves requires --method deterministic")
     if args.prepare:
         created = sample(ROOT / cfg["input"], ROOT / cfg["sample"], args.size or cfg["sample_size"], cfg["seed"])
         gold = BASE / "data/gold.jsonl"; gold.touch(exist_ok=True)
@@ -238,7 +249,7 @@ def main():
         print(json.dumps({"sample_records": len(created), "sample": str(ROOT / cfg["sample"]), "gold_ready": gold.stat().st_size > 0, "malformed_or_multiline_physical_lines_skipped": physical-parsed, "sample_protocols": protocols, "protocols_without_parseable_records": sorted(set(("ssh", "http", "ftp", "mongodb"))-set(protocols)), "m2_outcome_strata": outcomes}, indent=2)); return
     if not args.method: parser.error("choose --prepare or --method")
     run_start = time.perf_counter()
-    rows = run(args.method, args.model, args.server_url, sample_path_override=args.sample, limit=args.limit)
+    rows = run(args.method, args.model, args.server_url, sample_path_override=args.sample, limit=args.limit, include_cves=args.include_cves)
     total_runtime = time.perf_counter() - run_start
     if args.method == "deterministic":
         # The NVD-backed resolver must not open or consult the legacy local dictionary.
@@ -260,6 +271,11 @@ def main():
                         "api_key_configured": api_key_configured,
                         "rate_limit_mode": "api_key" if api_key_configured else "public",
                         "results_file": str(LAST_OUTPUT_PATH), "summary_file": str(summary_target)})
+        if args.include_cves:
+            summary.update({"cve_source": "nvd_cve_api_2.0",
+                "nvd_cve_requests": sum(row.get("cve_retrieval", {}).get("request_count", 0) for row in rows),
+                "cve_retrieval_statuses": dict(Counter(item.get("retrieval_status") for row in rows
+                    for item in row.get("cve_retrieval", {}).get("identities", []) if item.get("retrieval_status")))})
     with summary_target.open("x", encoding="utf-8") as f: json.dump(summary, f, indent=2)
     print(json.dumps(summary, indent=2))
 

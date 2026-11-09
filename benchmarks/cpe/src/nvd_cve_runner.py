@@ -1,0 +1,119 @@
+"""Deterministic benchmark adapter for NVD CVE retrieval (not applicability)."""
+from __future__ import annotations
+
+import copy
+from datetime import datetime, timezone
+from typing import Any
+
+from benchmarks.cpe.src.cpe23 import Cpe23Error, parse_cpe23
+from benchmarks.cpe.src.nvd_cve_api import NvdCveApiError, NvdCveClient, validate_cve_name
+
+
+def _eligibility(resolution: dict[str, Any]) -> tuple[str | None, str | None]:
+    status = resolution.get("resolution_status")
+    if status != "exact_match":
+        mapping = {
+            "review_required": "skipped_review_required",
+            "ambiguous": "skipped_ambiguous",
+            "deprecated_only": "skipped_deprecated",
+            "skipped_weak": "skipped_weak",
+        }
+        return None, mapping.get(status, "skipped_non_exact_cpe")
+    cpe = resolution.get("cpe_name") or resolution.get("cpe23")
+    try:
+        parsed = parse_cpe23(cpe)
+    except (Cpe23Error, TypeError, ValueError):
+        return None, "invalid_cpe"
+    metadata = resolution.get("nvd_metadata") or {}
+    if (metadata.get("deprecated") is True or resolution.get("deprecated") is True
+            or (resolution.get("nvd_candidate") or {}).get("deprecated") is True):
+        return None, "skipped_deprecated"
+    if metadata.get("inferred_components"):
+        return None, "skipped_review_required"
+    if any(not parsed.is_concrete(field) for field in ("part", "vendor", "product")):
+        return None, "skipped_non_exact_cpe"
+    if not parsed.is_concrete("version") or parsed.version in {"*", "-"}:
+        return None, "skipped_nonconcrete_version"
+    try:
+        validate_cve_name(cpe)
+    except ValueError:
+        return None, "invalid_cpe"
+    return cpe, None
+
+
+def retrieve_record_cves(record_id: str, identities: list[dict[str, Any]], client: NvdCveClient,
+                         *, max_requests_per_identity: int = 5) -> dict[str, Any]:
+    """Retrieve per exact CPE and preserve every source-identity relationship."""
+    initial_request_count = client.request_count
+    entries: list[dict[str, Any]] = []
+    unique: dict[str, dict[str, Any]] = {}
+    associations: dict[str, list[dict[str, str]]] = {}
+    for index, resolution in enumerate(identities):
+        identity_id = str(resolution.get("candidate_id") or f"{record_id}:{index}")
+        cpe, skipped = _eligibility(resolution)
+        common = {"identity_id": identity_id, "source_record_id": record_id,
+                  "source_path": resolution.get("source_path"), "cpe23": cpe,
+                  "extracted_identity": copy.deepcopy(resolution.get("extracted_identity")),
+                  "cpe_source": "nvd_api_2.0", "endpoint": client.endpoint,
+                  "cve_source": "nvd_cve_api_2.0"}
+        if skipped:
+            entries.append({**common, "retrieval_status": skipped, "cves": [],
+                            "retrieved_count": 0, "complete": False, "requests_made": 0})
+            continue
+        requests_before = client.request_count
+        try:
+            result = client.fetch_by_cpe(cpe, max_requests=max_requests_per_identity)
+        except NvdCveApiError as exc:
+            actual_requests = client.request_count - requests_before
+            status = {"invalid_response": "api_invalid_response", "response_too_large": "response_too_large",
+                      "request_budget_exhausted": "request_budget_exhausted"}.get(exc.category, "api_unavailable")
+            entries.append({**common, "retrieval_status": status, "cves": [], "retrieved_count": 0,
+                            "complete": False, "requests_made": actual_requests,
+                            "error_category": exc.category, "error": str(exc)})
+            continue
+        relation = {"source_record_id": record_id, "identity_id": identity_id, "cpe23": cpe}
+        ids = []
+        for item in result.cves:
+            cve = item["cve"]
+            cve_id = cve["id"]
+            ids.append(cve_id)
+            unique.setdefault(cve_id, copy.deepcopy(item))
+            associations.setdefault(cve_id, [])
+            if relation not in associations[cve_id]:
+                associations[cve_id].append(relation)
+        if result.error_category == "response_too_large":
+            retrieval_status = "response_too_large"
+        elif result.error_category == "invalid_response":
+            retrieval_status = "api_invalid_response"
+        elif result.error_category:
+            retrieval_status = "api_unavailable"
+        elif result.truncated_reason == "request_budget_exhausted":
+            retrieval_status = "request_budget_exhausted"
+        elif result.truncated_reason == "response_too_large":
+            retrieval_status = "response_too_large"
+        elif not result.pagination_complete:
+            retrieval_status = "incomplete_lookup"
+        else:
+            retrieval_status = "retrieved" if result.cves else "no_cves"
+        entries.append({**common, "retrieval_status": retrieval_status,
+                        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                        "api_timestamp": result.timestamp, "total_results": result.total_results,
+                        "retrieved_count": len(result.cves), "pages_fetched": result.pages_fetched,
+                        "requests_made": client.request_count - requests_before,
+                        "retry_count": result.retry_count, "http_status": result.http_status,
+                        "response_bytes": result.response_bytes,
+                        "api_format": result.format, "api_version": result.version,
+                        "schema_version": result.schema_version,
+                        "pagination_complete": result.pagination_complete, "complete": result.pagination_complete,
+                        "cache_hit": result.cache_hit, "parameters": result.parameters,
+                        "error_category": result.error_category, "error": result.error_message,
+                        "cve_ids": ids})
+    for cve_id, item in unique.items():
+        item["relationships"] = associations[cve_id]
+    return {"source": "nvd_cve_api_2.0", "api_endpoint": client.endpoint,
+            "api_version": "2.0", "schema_version": "2.2.4",
+            "source_record_id": record_id, "identities": entries,
+            "unique_cve_count": len(unique), "cves": list(unique.values()),
+            "relationships": associations,
+            "request_count": client.request_count - initial_request_count,
+            "client_request_count": client.request_count, "cache_hits": client.cache_hits}
