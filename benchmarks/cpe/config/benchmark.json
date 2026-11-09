@@ -42,5 +42,18 @@
       "llama_cpp_version": null,
       "verified_usable": false
     }
-  }
+  },
+  "nvd_cve_endpoint": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+  "nvd_cve_timeout_seconds": 30,
+  "nvd_cve_min_interval_seconds": null,
+  "nvd_cve_max_retries": 3,
+  "nvd_cve_backoff_base_seconds": 1,
+  "nvd_cve_backoff_cap_seconds": 30,
+  "nvd_cve_retry_after_cap_seconds": 60,
+  "nvd_cve_results_per_page": 100,
+  "nvd_cve_max_pages": 5,
+  "nvd_cve_max_requests_per_identity": 5,
+  "nvd_cve_max_requests_per_run": 50,
+  "nvd_cve_max_response_bytes": 33554432,
+  "nvd_cve_max_response_bytes_per_run": 67108864
 }
