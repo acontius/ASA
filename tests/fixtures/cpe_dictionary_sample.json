@@ -15,9 +15,9 @@
     {
       "cpe": {
         "deprecated": false,
-        "cpeName": "cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*",
+        "cpeName": "cpe:2.3:a:openbsd:openssh:9.6:p1:*:*:*:*:*:*",
         "cpeNameId": "22222222-2222-2222-2222-222222222222",
-        "titles": [{"title": "Synthetic OpenSSH 9.6p1", "lang": "en"}]
+        "titles": [{"title": "Synthetic OpenSSH 9.6 update p1", "lang": "en"}]
       }
     },
     {
