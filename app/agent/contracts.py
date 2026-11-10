@@ -1,4 +1,4 @@
-"""Typed interaction contracts for the future bounded local agent.
+"""Typed interaction contracts for the bounded local agent.
 
 These are conversation/control contracts only. They are not security findings
 and deliberately do not mirror or replace the M1-M4 data schemas.
@@ -14,6 +14,8 @@ ToolName = Literal[
     "check_readiness",
     "list_prior_runs",
     "summarize_results",
+    "extract_identities",
+    "resolve_cpe_local",
 ]
 DecisionType = Literal["tool_call", "final_answer", "clarification"]
 
@@ -23,6 +25,8 @@ ALLOWED_TOOL_NAMES = frozenset(
         "check_readiness",
         "list_prior_runs",
         "summarize_results",
+        "extract_identities",
+        "resolve_cpe_local",
     }
 )
 ALLOWED_DECISION_TYPES = frozenset(
@@ -49,7 +53,7 @@ class AgentRequest:
 
 @dataclass(frozen=True, slots=True)
 class ToolCall:
-    """One allow-listed future read-only tool invocation description.
+    """One allow-listed tool invocation description.
 
     Arguments are represented as immutable string pairs. This object describes
     a request only; it does not execute the tool or authorize arbitrary actions.
@@ -81,7 +85,7 @@ class ToolCall:
 
 @dataclass(frozen=True, slots=True)
 class AgentDecision:
-    """A single bounded decision returned by the future agent.
+    """A single bounded decision returned by the agent.
 
     Exactly one ToolCall object is permitted for tool_call. The other decision
     types cannot carry a tool call. This validates an in-process typed object;

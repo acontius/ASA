@@ -1,4 +1,4 @@
-"""Minimal immutable configuration for a future loopback-only local agent."""
+"""Minimal immutable configuration for a loopback-only local agent."""
 
 from __future__ import annotations
 
@@ -50,11 +50,11 @@ def _validate_loopback_url(value: object) -> None:
 class AgentConfig:
     """Conservative limits for local inference; no environment or I/O behavior."""
 
-    server_url: str = "http://127.0.0.1:8080"
-    request_timeout_seconds: float = 15.0
-    max_steps: int = 5
+    server_url: str = "http://127.0.0.1:9931"
+    request_timeout_seconds: float = 60.0
+    max_steps: int = 8
     max_output_tokens: int = 512
-    model_alias: str = "asa-local"
+    model_alias: str = "llama3.1"
 
     def __post_init__(self) -> None:
         _validate_loopback_url(self.server_url)
